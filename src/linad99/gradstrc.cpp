@@ -41,7 +41,6 @@ void null_ptr_err_message(void);
   #include <cassert>
 #endif
 
-extern ofstream clogf;
 #ifndef __SUNPRO_CC
 typedef int (* fptr) (const char * format, ...) ;
 #endif
@@ -69,7 +68,7 @@ int gradient_structure::Hybrid_bounded_flag=0;
 DF_FILE * gradient_structure::fp=NULL;
 char gradient_structure::cmpdif_file_name[61];
 //char gradient_structure::var_store_file_name[61];
-int gradient_structure::NUM_RETURN_ARRAYS = 25;
+unsigned int gradient_structure::NUM_RETURN_ARRAYS = 25;
 double * gradient_structure::hessian_ptr=NULL;
 int gradient_structure::NUM_DEPENDENT_VARIABLES = 2000;
 #if (defined(NO_DERIVS))
@@ -81,9 +80,9 @@ size_t gradient_structure::TOTAL_BYTES = 0;
 size_t gradient_structure::PREVIOUS_TOTAL_BYTES = 0;
 long int gradient_structure::USE_FOR_HESSIAN = 0;
 dvariable** gradient_structure::RETURN_ARRAYS = NULL;
-int gradient_structure::RETURN_ARRAYS_PTR;
+unsigned int gradient_structure::RETURN_ARRAYS_PTR;
 dvariable ** gradient_structure::RETURN_PTR_CONTAINER = NULL;
-int gradient_structure::RETURN_ARRAYS_SIZE = 70;
+unsigned int gradient_structure::RETURN_ARRAYS_SIZE = 70;
 int gradient_structure::instances = 0;
 //int gradient_structure::RETURN_INDEX = 0;
 //dvariable * gradient_structure::FRETURN = NULL;
@@ -118,7 +117,7 @@ int gradient_structure::save_var_file_flag=0;
 unsigned int gradient_structure::MAX_NVAR_OFFSET = 5000;
 unsigned long gradient_structure::ARRAY_MEMBLOCK_SIZE = 0L; //js
 dlist * gradient_structure::GRAD_LIST;
-grad_stack * gradient_structure::GRAD_STACK1;
+grad_stack* gradient_structure::GRAD_STACK1;
 indvar_offset_list * gradient_structure::INDVAR_LIST = NULL;
 arr_list * gradient_structure::ARR_LIST1 = NULL;
 arr_list * gradient_structure::ARR_FREE_LIST1 = NULL;
@@ -169,51 +168,47 @@ size_t gradient_structure::totalbytes(void)
  void fill_ad_random_part(void);
  extern char ad_random_part[6];
 
-/**
-Close gradient and variable files.  Free gradient structure memory.
-*/
+/// Close gradient and variable files and free gradient structure memory.
 void cleanup_temporary_files()
 {
-   if (gradient_structure::fp)
-   {
-     delete gradient_structure::fp;
-     gradient_structure::fp=NULL;
-   }
-   if (gradient_structure::GRAD_STACK1)
-   {
-     if (close(gradient_structure::GRAD_STACK1->_GRADFILE_PTR1))
-     {
-       cerr << "Error closing file "
-       << gradient_structure::GRAD_STACK1->gradfile_name1 << "\n";
-     }
-     if (close(gradient_structure::GRAD_STACK1->_GRADFILE_PTR2))
-     {
-       cerr << "Error closing file "
-       << gradient_structure::GRAD_STACK1->gradfile_name2 << "\n";
-     }
-     if (close( gradient_structure::GRAD_STACK1->_VARSSAV_PTR))
-     {
-       cerr << "Error closing file "
-       << gradient_structure::GRAD_STACK1->var_store_file_name << "\n";
-     }
-   }
-#if !defined (_MSC_VER)
-   if (gradient_structure::GRAD_STACK1)
-   {
-     unlink(gradient_structure::GRAD_STACK1->gradfile_name1);
-     unlink(gradient_structure::GRAD_STACK1->gradfile_name2);
-     unlink(gradient_structure::GRAD_STACK1->var_store_file_name);
-     //unlink(gradient_structure::cmpdif_file_name);
-   }
+  if (gradient_structure::fp)
+  {
+    delete gradient_structure::fp;
+    gradient_structure::fp = NULL;
+  }
+  if (gradient_structure::GRAD_STACK1)
+  {
+    if (gradient_structure::GRAD_STACK1->_GRADFILE_PTR1 != -1
+        && close(gradient_structure::GRAD_STACK1->_GRADFILE_PTR1))
+    {
+      cerr << "Error closing file "
+           << gradient_structure::GRAD_STACK1->gradfile_name1 << "\n";
+    }
+    gradient_structure::GRAD_STACK1->_GRADFILE_PTR1 = -1;
+    if (gradient_structure::GRAD_STACK1->_GRADFILE_PTR2 != -1
+        && close(gradient_structure::GRAD_STACK1->_GRADFILE_PTR2))
+    {
+      cerr << "Error closing file "
+           << gradient_structure::GRAD_STACK1->gradfile_name2 << "\n";
+    }
+    gradient_structure::GRAD_STACK1->_GRADFILE_PTR2 = -1;
+    if (gradient_structure::GRAD_STACK1->_VARSSAV_PTR != -1
+        && close(gradient_structure::GRAD_STACK1->_VARSSAV_PTR))
+    {
+      cerr << "Error closing file "
+           << gradient_structure::GRAD_STACK1->var_store_file_name << "\n";
+    }
+    gradient_structure::GRAD_STACK1->_VARSSAV_PTR = -1;
+#if defined (_MSC_VER)
+    remove(gradient_structure::GRAD_STACK1->gradfile_name1);
+    remove(gradient_structure::GRAD_STACK1->gradfile_name2);
+    remove(gradient_structure::GRAD_STACK1->var_store_file_name);
 #else
-   if (gradient_structure::GRAD_STACK1)
-   {
-     remove(gradient_structure::GRAD_STACK1->gradfile_name1);
-     remove(gradient_structure::GRAD_STACK1->gradfile_name2);
-     remove(gradient_structure::GRAD_STACK1->var_store_file_name);
-     //cout << remove(gradient_structure::cmpdif_file_name);
-   }
+    unlink(gradient_structure::GRAD_STACK1->gradfile_name1);
+    unlink(gradient_structure::GRAD_STACK1->gradfile_name2);
+    unlink(gradient_structure::GRAD_STACK1->var_store_file_name);
 #endif
+  }
 }
 
 /**
@@ -295,8 +290,6 @@ gradient_structure::gradient_structure(long int _size):
   atexit(cleanup_temporary_files);
   fill_ad_random_part();
 
-  const unsigned long int size = (unsigned long int)_size;
-
   if (instances++ > 0)
   {
     cerr << "More than one gradient_structure object has been declared.\n"
@@ -304,7 +297,11 @@ gradient_structure::gradient_structure(long int _size):
          << "  of the objects declared.\n";
     ad_exit(1);
   }
-  gradient_structure::ARRAY_MEMBLOCK_SIZE=size; //js
+
+  //Should be a multiple of sizeof(double_and_int)
+  const long int remainder = _size % sizeof(double_and_int);
+  gradient_structure::ARRAY_MEMBLOCK_SIZE =
+    static_cast<unsigned long int>(_size - remainder);
 
   char* path = getenv("ADTMP1"); // NULL if not defined
   if (path != NULL && strlen(path) <= 45)
@@ -466,7 +463,7 @@ cerr << "Trying to allocate to a non NULL pointer in gradient structure \n";
         if (nopt ==1)
         {
           const int i = atoi(ad_comm::argv[on+1]);
-          MAX_NVAR_OFFSET = (unsigned int)i;
+          MAX_NVAR_OFFSET = static_cast<unsigned int>(i);
         }
         else
         {
@@ -496,10 +493,10 @@ cerr << "Trying to allocate to a non NULL pointer in gradient structure \n";
     memory_allocate_error("RETURN_ARRAYS",RETURN_ARRAYS);
 
     //allocate_dvariable_space();
-    for (int i=0; i< NUM_RETURN_ARRAYS; i++)
+    for (unsigned int i = 0; i < NUM_RETURN_ARRAYS; ++i)
     {
-      RETURN_ARRAYS[i]=new dvariable[RETURN_ARRAYS_SIZE];
-      memory_allocate_error("RETURN_ARRAYS[i]",RETURN_ARRAYS[i]);
+      RETURN_ARRAYS[i]  = new dvariable[RETURN_ARRAYS_SIZE];
+      memory_allocate_error("RETURN_ARRAYS[i]", RETURN_ARRAYS[i]);
     }
     RETURN_ARRAYS_PTR = 0;
     MIN_RETURN = RETURN_ARRAYS[RETURN_ARRAYS_PTR];
@@ -508,12 +505,12 @@ cerr << "Trying to allocate to a non NULL pointer in gradient structure \n";
   }
   //RETURN_INDEX = 0;
 
-  RETURN_PTR_CONTAINER=new dvariable*[NUM_RETURN_ARRAYS];
+  RETURN_PTR_CONTAINER = new dvariable*[NUM_RETURN_ARRAYS];
   memory_allocate_error("RETURN_INDICES_CONTAINER",RETURN_PTR_CONTAINER);
 
-  for (int i=0; i< NUM_RETURN_ARRAYS; i++)
+  for (unsigned int i = 0; i < NUM_RETURN_ARRAYS; ++i)
   {
-    RETURN_PTR_CONTAINER[i]=0;
+    RETURN_PTR_CONTAINER[i] = 0;
   }
 }
 
@@ -560,13 +557,15 @@ void RETURN_ARRAYS_DECREMENT(void)
 #if defined(THREAD_SAFE)
   pthread_mutex_lock(&mutex_return_arrays);
 #endif
-  if (--gradient_structure::RETURN_ARRAYS_PTR< 0)
+  if (gradient_structure::RETURN_ARRAYS_PTR == 0)
   {
-    cerr << " Error -- RETURN_ARRAYS_PTR < 0  \n";
+    cerr << " Error -- RETURN_ARRAYS_PTR is 0  \n";
     cerr << " There must be a RETURN_ARRAYS_DECREMENT()\n";
     cerr << " which is not matched by a RETURN_ARRAYS_INCREMENT()\n";
     ad_exit(24);
   }
+  --gradient_structure::RETURN_ARRAYS_PTR;
+
   gradient_structure::MIN_RETURN =
     gradient_structure::RETURN_ARRAYS[gradient_structure::RETURN_ARRAYS_PTR];
   gradient_structure::MAX_RETURN =
@@ -592,10 +591,10 @@ gradient_structure::~gradient_structure()
   }
   else
   {
-     for (int i=0; i< NUM_RETURN_ARRAYS; i++)
+     for (unsigned int i = 0; i < NUM_RETURN_ARRAYS; ++i)
      {
        delete [] RETURN_ARRAYS[i];
-       RETURN_ARRAYS[i]=NULL;
+       RETURN_ARRAYS[i] = NULL;
      }
      delete [] RETURN_ARRAYS;
      RETURN_ARRAYS = NULL;
@@ -698,18 +697,20 @@ void memory_allocate_error(const char * s, void * ptr)
 
  #if defined(NO_DERIVS)
 
-/**
- * Description not yet available.
- * \param
+/** Disable accumulation of derivative information. 
+    Used internally by ADMB to avoid computation of derivatives.
+    Also useful for running simulations using variable objects when
+    function minimization is not required. 
+   \ingroup BAD
  */
     void gradient_structure::set_NO_DERIVATIVES(void)
     {
       no_derivatives=1;
     }
 
-/**
- * Description not yet available.
- * \param
+/** Enable accumulation of derivative information. 
+    Used internally by ADMB to restart computation of derivatives.
+   \ingroup BAD
  */
     void gradient_structure::set_YES_DERIVATIVES(void)
     {

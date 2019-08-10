@@ -37,13 +37,7 @@
   #include <unistd.h>
 #endif
 
-#ifdef _MSC_VER
-  #define LSEEK _lseek
-  #define  read _read
-  #define write _write
-  #define open _open
-  #define close _close
-#else
+#ifndef _MSC_VER
   #include <iostream>
   using namespace std;
   #include <sys/stat.h>
@@ -201,7 +195,7 @@ void gradient_structure::jacobcalc(int nvar, const dmatrix& _jac)
 
     if(GRAD_STACK1->ptr <= GRAD_STACK1->ptr_first)
     {
-#ifdef SAFE_ALL
+#ifdef DEBUG
         cerr << "warning -- calling gradcalc when no calculations generating"
          << endl << "derivative information have occurred" << endl;
 #endif

@@ -8,9 +8,6 @@ Copyright (c) 2008-2012 Regents of the University of California
 #ifndef OPT_LIB
   #include <cassert>
 #endif
-#ifdef __OPEN64__
-  #define nullptr NULL
-#endif
 
 /**
 Default constructor
@@ -29,17 +26,17 @@ dvar_matrix::dvar_matrix(const dvar_matrix& other)
   if (!(other))
   {
     //cerr << "Making a copy of an unallocated dvar_matrix" << endl;
-    index_min = 0;
-    index_max = -1;
-    shape = nullptr;
-    m = nullptr;
+    allocate();
   }
   else
   {
     index_min = other.index_min;
     index_max = other.index_max;
     shape = other.shape;
-    (shape->ncopies)++;
+    if (shape)
+    {
+      (shape->ncopies)++;
+    }
     m = other.m;
   }
 }
@@ -169,7 +166,8 @@ dvar_matrix::dvar_matrix(int nrl, int nrh, int ncl, int nch)
 
 /**
 Allocate variable matrix with dimension [nrl to nrh] where
-columns are empty.
+columns are empty.  If nrl greater than nrh, then dvar_matrix
+is initialized as empty.
 
 \param nrl lower index
 \param nrh upper index
@@ -186,14 +184,19 @@ void dvar_matrix::allocate(int nrl, int nrh)
     index_max = nrh;
     if ((m = new dvar_vector[rowsize()]) == 0)
     {
-      cerr << " Error allocating memory in dvar_matrix contructor\n";
-      ad_exit(21);
+      cerr << " Error allocating memory in dvar_matrix::allocate(int, int)\n";
+      ad_exit(1);
     }
     if ((shape = new mat_shapex(m)) == 0)
     {
-      cerr << " Error allocating memory in dvar_matrix contructor\n";
+      cerr << " Error allocating memory in dvar_matrix::allocate(int, int)\n";
+      ad_exit(1);
     }
     m -= rowmin();
+    for (int i = nrl; i <= nrh; ++i)
+    {
+      elem(i).allocate();
+    }
   }
 }
 /**
@@ -206,55 +209,24 @@ Allocates AD variable matrix with dimensions nrl to nrh by ncl to nch.
 */
 void dvar_matrix::allocate(int nrl, int nrh, int ncl, int nch)
 {
-  if (nrl > nrh)
+  allocate(nrl, nrh);
+  for (int i = nrl; i <= nrh; ++i)
   {
-    allocate();
-  }
-  else
-  {
-    index_min = nrl;
-    index_max = nrh;
-    if ((m = new dvar_vector[rowsize()]) == 0)
-    {
-      cerr << " Error allocating memory in dvar_matrix contructor\n";
-      ad_exit(21);
-    }
-    if ((shape=new mat_shapex(m)) == 0)
-    {
-      cerr << " Error allocating memory in dvar_matrix contructor\n";
-    }
-    m -= rowmin();
-    for (int i=nrl; i<=nrh; i++)
-    {
-      m[i].allocate(ncl,nch);
-    }
+    elem(i).allocate(ncl, nch);
   }
 }
-
 /**
- * Description not yet available.
- * \param
- */
- void dvar_matrix::allocate(ad_integer nrl,ad_integer nrh)
- {
-   if (nrl>nrh)
-     allocate();
-   else
-   {
-     index_min=nrl;
-     index_max=nrh;
-     if ( (m = new dvar_vector [rowsize()]) == 0)
-     {
-       cerr << " Error allocating memory in dvar_matrix contructor\n";
-       ad_exit(21);
-     }
-     if ( (shape=new mat_shapex(m)) == 0)
-     {
-       cerr << " Error allocating memory in dvar_matrix contructor\n";
-     }
-     m -= rowmin();
-   }
- }
+Allocate variable matrix with dimension [nrl to nrh] where
+columns are empty.  If nrl greater than nrh, then dvar_matrix
+is initialized as empty.
+
+\param nrl lower index
+\param nrh upper index
+*/
+void dvar_matrix::allocate(ad_integer nrl, ad_integer nrh)
+{
+  allocate(static_cast<int>(nrl), static_cast<int>(nrh));
+}
 
 /**
 Allocate variable matrix using the same dimensions as m1.
@@ -445,64 +417,37 @@ where ncl is a vector of indexes.
 */
 void dvar_matrix::allocate(int nrl, int nrh, const ivector& ncl, int nch)
 {
-  if (nrl>nrh)
+  allocate(nrl, nrh);
+  for (int i = nrl; i <= nrh; ++i)
   {
-    allocate();
+    elem(i).allocate(ncl(i), nch);
+  }
+}
+/**
+Shallow copy other data structure pointers.
+
+\param other dvar3_array
+*/
+void dvar_matrix::shallow_copy(const dvar_matrix& other)
+{
+  if (other.shape)
+  {
+    shape = other.shape;
+    ++(shape->ncopies);
+    m = other.m;
+
+    index_min = other.index_min;
+    index_max = other.index_max;
   }
   else
   {
-    if (nrl != ncl.indexmin() || nrh != ncl.indexmax())
-    {
-      cerr << "Incompatible array bounds in "
-       "dvar_matrix(int nrl, int nrh, const ivector& ncl,int nch)"
-       << endl;
-      ad_exit(1);
-    }
-    index_min=nrl;
-    index_max=nrh;
-    if ( (m = new dvar_vector[rowsize()]) == 0)
-    {
-      cerr << " Error allocating memory in dvar_matrix contructor"<<endl;
-      ad_exit(21);
-    }
-    if ( (shape=new mat_shapex(m)) == 0)
-    {
-      cerr << " Error allocating memory in dvar_matrix contructor"<<endl;
-    }
-    m -= rowmin();
-    for (int i=nrl; i<=nrh; i++)
-    {
-      m[i].allocate(ncl[i],nch);
-    }
+#ifdef DEBUG
+    cerr << "Warning -- Unable to shallow copy an unallocated dvar_matrix.\n";
+#endif
+    allocate();
   }
 }
-
-/**
- * Description not yet available.
- * \param
- */
- void dvar_matrix::shallow_copy(const dvar_matrix& m2)
- {
-   if (!(m2))
-   {
-     //cerr << "Making a copy of an unallocated dvar_matrix" << endl;
-     index_min=0;
-     index_max=-1;
-     shape=NULL;
-     m=NULL;
-   }
-   else
-   {
-     index_min=m2.index_min;
-     index_max=m2.index_max;
-     shape=m2.shape;
-     (shape->ncopies)++;
-     m = m2.m;
-   }
- }
-/**
-Does not allocate, but initializes members.
-*/
+/// Does not allocate, but initializes members.
 void dvar_matrix::allocate()
 {
   index_min = 1;
@@ -510,74 +455,76 @@ void dvar_matrix::allocate()
   shape = nullptr;
   m = nullptr;
 }
-/**
-Deallocates memory.
-*/
+/// Deallocate dvar_matrix memory.
 void dvar_matrix::deallocate()
 {
-   if (shape)
-   {
-     m = (dvar_vector*)(shape->get_pointer());
-     delete [] m;
-     m = NULL;
-
-     delete shape;
-     shape = NULL;
-   }
-#if defined(ADDEBUG_PRINT)
-   else
-   {
-     cerr << "Warning -- trying to delete an unallocated dvar_matrix"<<endl;
-   }
+  if (shape)
+  {
+    if (shape->ncopies > 0)
+    {
+      --(shape->ncopies);
+    }
+    else
+    {
+      m = static_cast<dvar_vector*>(shape->get_pointer());
+      delete [] m;
+      delete shape;
+    }
+    allocate();
+  }
+#ifdef DEBUG
+  else
+  {
+    cerr << "Warning -- Unable to deallocate an unallocated dvar_matrix.\n";
+  }
 #endif
 }
 /**
-Assigns dvar_matrix values to dvar_matrix.
+Assigns other values to dvar_matrix.
 
 \param values dmatrix
 */
-dvar_matrix& dvar_matrix::operator=(const dvar_matrix& values)
+dvar_matrix& dvar_matrix::operator=(const dvar_matrix& other)
 {
   if (!allocated(*this))
   {
-    shallow_copy(values);
+    shallow_copy(other);
   }
   else
   {
-    if (rowmin() != values.rowmin() || rowmax() != values.rowmax())
+    if (rowmin() != other.rowmin() || rowmax() != other.rowmax())
     {
       cerr << "Error: Incompatible array bounds in "
-            "dvar_matrix& operator=(const dvar_matrix&)\n";
-      ad_exit(21);
+            "dvar_matrix& dvar_matrix::operator=(const dvar_matrix&)\n";
+      ad_exit(1);
     }
     // check for condition that both matrices don't point to the same object
-    if (m != values.m)
+    if (m != other.m)
     {
       for (int i = rowmin(); i <= rowmax(); ++i)
       {
-        (*this)[i] = values[i];
+        elem(i) = other.elem(i);
       }
     }
   }
   return *this;
 }
 /**
-Assigns dmatrix values to dvar_matrix.
+Assigns scalar matrix values to dvar_matrix.
 
-\param values dmatrix
+\param matrix dmatrix
 */
-dvar_matrix& dvar_matrix::operator=(const dmatrix& values)
+dvar_matrix& dvar_matrix::operator=(const dmatrix& matrix)
 {
-  if (rowmin() != values.rowmin() || rowmax() != values.rowmax()
-      || colmin() != values.colmin() || colmax() != values.colmax())
+  if (rowmin() != matrix.rowmin() || rowmax() != matrix.rowmax())
   {
     cerr << "Error: Incompatible array bounds in "
-            "dvar_matrix& operator=(const dmatrix&)\n";
-    ad_exit(21);
+         << "dvar_matrix& dvar_matrix::operator=(const dmatrix&)\n";
+    ad_exit(1);
   }
   for (int i = rowmin(); i <= rowmax(); ++i)
   {
-    (*this)[i] = values[i];
+    elem(i) = matrix.elem(i);
   }
   return *this;
 }

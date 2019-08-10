@@ -1,5 +1,6 @@
 % Author: Dave Fournier
-% Copyright (c) 2008-2017 ADMB Foundation and Regents of the University of California
+% Copyright (c) 2008-2017
+% ADMB Foundation and Regents of the University of California
 
 
 \documentclass{admbmanual}
@@ -25,7 +26,9 @@
 \newcommand\Pone{P_{t|t-1}}
 \newcommand\diag{\textrm{diag}}
 \newcommand\ep{\textrm{elem\_prod}}
-\newcommand\admbversion{11.6}
+\newcommand\admbversion{12.0}
+\newcommand\admbyear{2017}
+\newcommand\admbdate{2017-12-20}
 
 \makeindex
 
@@ -35,8 +38,8 @@
   \smalltitlepart{An Introduction to}
   \largetitlepart{AD MODEL BUILDER}
   \smalltitlepart{for Use in Nonlinear Modeling and Statistics}
-  \vspace{3ex}\textsf{\textit{Version \admbversion~~(2015-05-22)\\[3pt]
-      Revised manual~~(2015-01-07)
+  \vspace{3ex}\textsf{\textit{Version \admbversion~~(\admbdate)\\[3pt]
+      ~% Revised manual~~(yyyy-mm-dd)
     }}\vspace{3ex}
 }
 \author{\textsf{\textit{David Fournier}}}
@@ -48,10 +51,9 @@
 \noindent ADMB Foundation, Honolulu.\\\\
 \noindent This is the manual for AD Model Builder (ADMB) version
 \admbversion.\\\\
-\noindent Copyright \copyright\ 1993, 1994, 1996, 2000, 2001, 2004, 2007, 2008,
-2011, 2013, 2014, 2015 David~Fournier\\\\
+\noindent Copyright \copyright\ 1993--\admbyear\ David Fournier\\\\
 \noindent The latest edition of the manual is available at:\\
-\url{http://admb-project.org/documentation/manuals}
+\url{http://www.admb-project.org/docs/manuals/}
 
 \tableofcontents
 
@@ -96,7 +98,7 @@ process of producing the executable is automated, so that the user who doesn't
 wish to consider the vagaries of \cplus\ programming can go from the \ADM\
 template to the compiled executable in one step. Assuming that the \cplus\
 compiler and the \ADM\ and \scAD\ libraries have been properly installed, then
-to produce a \ADM\ executable, it is only necessary to type \texttt{makeadm
+to produce a \ADM\ executable, it is only necessary to type \texttt{admb
   root}, where \texttt{root.tpl} is the name of the \textsc{ascii} file
 containing the template specification. To simplify model development, two modes
 of operation are provided: a safe mode with bounds checking on all array
@@ -258,7 +260,7 @@ attempt describing the time series of returns from some market instrument.
 
 %\item{5.}
 \paragraph{A problem in natural resource management.} The
-Schaefer-Pella-Tomlinson Model for investigating the response of an exploited
+Schaefer-Pella-Tomlinson model for investigating the response of an exploited
 fish population is developed and extended to include a Bayesian times series
 treatment of time-varying carrying capacity. This example is interesting because
 the model is rather temperamental. Several techniques for producing reliable
@@ -278,39 +280,38 @@ and estimate the exploitation rates, etc., in exploited fish populations.
 
 To illustrate this method, we begin with a simple statistical model, which is to
 estimate the parameters of a linear relationship of the form
-$$Y_{i} =ax_i+b\qquad \hbox{\rm for}\ 1<=i<=n,$$
-where $x_i$ and $Y_i$ are vectors, and $a$ and $b$ are the model parameters
+$$y_i=b_0+b_1x_i\qquad \hbox{\rm for}\ 1<=i<=n,$$
+where $x_i$ and $y_i$ are vectors, and $b_0$ and $b_1$ are the model parameters
 that are to be estimated. The parameters are estimated by the method
-of least squares---that is, we find the values of $a$ and $b$ such that
+of least squares---that is, we find the values of $b_0$ and $b_1$ such that
 the sum of the squared differences between the observed values
-$Y_i$ and the predicted values $ax_i+b$ is minimized. That is,
+$y_i$ and the predicted values $b_0+b_1x_i$ is minimized. That is,
 we want to solve the problem
-$$\min_{a,b}\sum_{i=1}^n(Y_i-ax_i-b)^2$$
+$$\min_{b_0,b_1}\sum_{i=1}^n(y_i-b_0-b_1x_i)^2$$
 
-The template for this model is in the file \texttt{SIMPLE.TPL}. To make the
-model, one would type \texttt{makeadm simple}. The resulting executable for the
-model is in the file \texttt{SIMPLE.EXE}. The contents of \texttt{SIMPLE.TPL}
-are below. (Anything following ``\texttt{//}'' is a comment.)
+The template for this model is in the file \texttt{simple.tpl}. To build the
+model, one would type \texttt{admb simple}. The resulting executable for the
+model is in the file \texttt{simple.exe}. The contents of \texttt{simple.tpl}
+are below.
 \XX{sections}{\fontindexentry{tt}{DATA\_SECTION}}
 \XX{sections}{\fontindexentry{tt}{PARAMETER\_SECTION}}
 \XX{sections}{\fontindexentry{tt}{PROCEDURE\_SECTION}}
 \begin{lstlisting}
 DATA_SECTION
-  init_int nobs             // nobs is the number of observations
-  init_vector Y(1,nobs)     // the observed Y values
-  init_vector x(1,nobs)
+  init_int n
+  init_vector x(1,n)
+  init_vector y(1,n)
 PARAMETER_SECTION
-  init_number a
-  init_number b
-  vector pred_Y(1,nobs)
+  init_number b0
+  init_number b1
+  vector yhat(1,n)
   objective_function_value f
 PROCEDURE_SECTION
-  pred_Y=a*x+b;       // calculate the predicted Y values
-  f=regression(Y,pred_Y);  // do the regression---the vector of
-                           // observations goes first
+  yhat=b0+b1*x;
+  f=regression(y,yhat);
 \end{lstlisting}
 The main requirement is that all keywords must begin in column~1, while the code
-itself must be indented.
+itself must be indented. Comments begin with \texttt{//}.
 
 \section{The data section}
 
@@ -330,28 +331,28 @@ are distinguished by the prefix \texttt{init}, as in \texttt{init\_int} or
 \texttt{init\_number}. All objects prefaced with \texttt{init} in the \DS\ are
 read in from a data file in the order in which they are declared. The default
 file names for various files are derived from the name of the executable
-program. For example, if the executable file is named \texttt{ROOT.EXE}, then
-the default input data file name is \texttt{ROOT.DAT}. For this example, the
-executable file is named \texttt{SIMPLE.EXE}, so the default data file is
-\texttt{SIMPLE.DAT}. Notice that once an object has been read in, its value is
+program. For example, if the executable file is named \texttt{root.exe}, then
+the default input data file name is \texttt{root.dat}. For this example, the
+executable file is named \texttt{simple.exe}, so the default data file is
+\texttt{simple.dat}. Notice that once an object has been read in, its value is
 available to be used to describe other data objects. In this case, the value of
-\texttt{nobs} can be used to define the size of the vectors \texttt{Y} and
-\texttt{x}. The next line
+\texttt{n} can be used to define the size of the vectors \texttt{x} and
+\texttt{y}. The next line
 \begin{lstlisting}
-  init\_vector Y(1,nobs)
+  init_vector x(1,n)
 \end{lstlisting}
-defines an initial vector object \texttt{Y} whose minimum valid index is~1 and
-whose maximum valid index is \texttt{nobs}. This vector object will be read in
-next from the data file. The contents of the file \texttt{SIMPLE.DAT} are shown
+defines an initial vector object \texttt{x} whose minimum valid index is~1 and
+whose maximum valid index is \texttt{n}. This vector object will be read in
+next from the data file. The contents of the file \texttt{simple.dat} are shown
 below.
 \X{data file}
 \begin{lstlisting}
 # number of observations
-     10
-# observed Y values
-    1.4  4.7  5.1  8.3  9.0  14.5  14.0  13.4  19.2  18
-# observed x values
-    -1  0 1  2  3  4  5  6  7  8
+10
+# x values
+-1  0  1  2  3  4  5  6  7  8
+# y values
+1.4  4.7  5.1  8.3  9.0  14.5  14.0  13.4  19.2  18.0
 \end{lstlisting}
 It is possible to put comment lines in the data files.
 \X{comments in data file}
@@ -373,7 +374,7 @@ in your model. The description of the model parameters is similar to that used
 for the data in the \DS.
 
 All parameters are floating point numbers (or arrays of floating point numbers).
-The statement \texttt{init\_number b} defines a floating point (actually, a
+The statement \texttt{init\_number b0} defines a floating point (actually, a
 double) number. The preface \texttt{init} means that this is an initial
 parameter. Initial parameters have two properties that distinguish them from
 other model parameters. First, all of the other model parameters are calculated
@@ -384,12 +385,12 @@ in from a data file) and initial parameters is that since parameters are
 estimated in the model, it is possible to assign initial default values to them.
 
 The default file name for the file that contains initial values for the initial
-model parameters is \texttt{ROOT.PIN}. If no file named \texttt{ROOT.PIN} is
+model parameters is \texttt{root.pin}. If no file named \texttt{root.pin} is
 found, default values are supplied for the initial parameters. (Methods for
 changing the default values for initial parameters are described below.) The
 statement
 \begin{lstlisting}
-  vector pred_Y(1,nobs)
+  vector yhat(1,n)
 \end{lstlisting}
 defines a vector of parameters. Since it is not prefaced with \texttt{init}, the
 values for this vector will not be read in from a file or given default values.
@@ -421,12 +422,12 @@ section.)
 Statements must end with a ``\texttt{;}''---exactly as with C or \cplus. The
 `\texttt{;}' is optional in the \DS\ and the \PS. The code uses \scAD's vector
 operations, which enable you to avoid writing a lot of code for loops. In the
-statement \texttt{pred\_Y=a*x+b;} the expression \texttt{a*x} forms the product
-of the number \texttt{a} and the components of the vector \texttt{x}, while
-\texttt{+b} adds the value of the number \texttt{b} to this product, so that
-\texttt{pred\_Y} has the components $ax_i+b$. In the line
+statement \texttt{yhat=b0+b1*x;} the expression \texttt{b1*x} forms the product
+of the number \texttt{b1} and the components of the vector \texttt{x}, while
+\texttt{b0+} adds the value of the number \texttt{b0} to this product, so that
+\texttt{yhat} has the components $b_0+b_1x_i$. In the line
 \begin{lstlisting}
-  f=regression(Y,pred\_Y);
+  f=regression(y,yhat);
 \end{lstlisting}
 the function \texttt{regression} calculates the log-likelihood function for the
 regression and assigns this value to the object \texttt{f}, which is of type
@@ -459,46 +460,46 @@ wants to carry out some calculations with the input data to put them in a more
 convenient form. Suppose that the input data for the simple regression model are
 in the form
 \begin{lstlisting}
-# number of observations
-     10
-# observed Y values  observed x values
-    1.4                    -1
-    4.7                     0
-    5.1                     1
-    8.3                     2
-    9.0                     3
-    14.5                    4
-    14.0                    5
-    13.4                    6
-    19.2                    7
-    18                      8
+# n
+10
+# x     y
+ -1   1.4
+  0   4.7
+  1   5.1
+  2   8.3
+  3   9.0
+  4  14.5
+  5  14.0
+  6  13.4
+  7  19.2
+  8  18.0
 \end{lstlisting}
-The problem is that the data are in pairs in the form $(Y_i,x_i)$, so that we
-can't read in either the $x_i$ or $Y_i$ first. To read in the data in this
-format, we will define a matrix with \texttt{nobs} rows and two columns. The
+The problem is that the data are in pairs in the form $(x_i,y_i)$, so that we
+can't read in either the $x_i$ or $y_i$ first. To read in the data in this
+format, we will define a matrix with \texttt{n} rows and two columns. The
 \DS\ becomes
 \begin{lstlisting}
 DATA_SECTION
-  init_int nobs
-  init_matrix Obs(1,nobs,1,2)
-  vector Y(1,nobs)
-  vector x(1,nobs)
+  init_int n
+  init_matrix mat(1,n,1,2)
+  vector x(1,n)
+  vector y(1,n)
 \end{lstlisting}
-Notice that since we do not want to read in \texttt{Y} or \texttt{x}, these
+Notice that since we do not want to read in \texttt{x} or \texttt{y}, these
 objects are no longer initial objects, so their declarations are no longer
-prefaced with \texttt{int}. The observations will be read into the initial
-matrix object \texttt{Obs} so that \texttt{Y} is in the first column of
-\texttt{Obs}, while \texttt{x} is in the second column. If we don't want to
+prefaced with \texttt{init}. The observations will be read into the initial
+matrix object \texttt{mat} so that \texttt{x} is in the first column of
+\texttt{mat}, while \texttt{y} is in the second column. If we don't want to
 change the rest of the code, the next problem is to get the first column of
-\texttt{Obs} into \texttt{Y}, and the second column of \texttt{Obs} into
-\texttt{x}. The following code in the \texttt{PRELIMINARY\_CALCS\_SECTION} will
+\texttt{mat} into \texttt{x}, and the second column of \texttt{mat} into
+\texttt{y}. The following code in the \texttt{PRELIMINARY\_CALCS\_SECTION} will
 accomplish this objective. It uses the function \texttt{column}, which extracts
 a column from a matrix object so that it can be put into a vector object.
 \XX{column}{extract a column from a matrix}
 \begin{lstlisting}
 PRELIMINARY_CALCS_SECTION
- Y=column(Obs,1); // extract the first column
- x=column(Obs,2); // extract the second column
+  Y=column(mat,1); // extract column 1
+  x=column(mat,2); // extract column 2
 \end{lstlisting}
 
 \section{The use of loops and element-wise operations}
@@ -510,15 +511,15 @@ that \scAD\ provides the \texttt{column} operation. What if you didn't know that
 and don't feel like reading the manual yet? For those who are familiar with~C,
 it is generally possible to use lower level ``C-like'' operations to accomplish
 the same objective as \scAD's array and matrix operations. In this case, the
-columns of the matrix \texttt{Obs} can also be copied to the vectors \texttt{x}
-and \texttt{Y} by using a standard for loop and the following element-wise
-operations
+columns of the matrix \texttt{mat} can also be copied to the vectors \texttt{x}
+and \texttt{y} by using a standard for loop and the following element-wise
+operations:
 \begin{lstlisting}
 PRELIMINARY_CALCS_SECTION
-  for (int i=1;i<=nobs;i++)
+  for (int i=1;i<=n;i++)
   {
-    Y[i]=Obs[i][1];
-    x[i]=Obs[i][2];
+    x[i]=mat[i][1];
+    y[i]=mat[i][2];
   }
 \end{lstlisting}
 Incidentally, the C-like operation \texttt{[]} was used for indexing members of
@@ -528,10 +529,10 @@ be written as
 \X{accessing elements of matrix objects}
 \begin{lstlisting}
 PRELIMINARY_CALCS_SECTION
-  for (int i=1;i<=nobs;i++)
+  for (int i=1;i<=n;i++)
   {
-    Y(i)=Obs(i,1);
-    x(i)=Obs(i,2);
+    x(i)=mat(i,1);
+    y(i)=mat(i,2);
   }
 \end{lstlisting}
 which may be more readable for some users. Notice that it is also possible to
@@ -544,26 +545,28 @@ index for the for loop, ``on the fly'' in the
 
 By default, \ADM\ produces three or more files:
 \begin{enumerate}
-  \item \texttt{ROOT.PAR}, which contains the parameter estimates in
+  \item \texttt{root.par}, which contains the parameter estimates in
   \textsc{ascii} format,
 
-  \item \texttt{ROOT.BAR}, which is the parameter estimates in a binary file
+  \item \texttt{root.bar}, which is the parameter estimates in a binary file
   format, and
 
-  \item \texttt{ROOT.COR}, which contains the estimated standard deviations and
+  \item \texttt{root.cor}, which contains the estimated standard deviations and
   correlations of the parameter estimates.
 \end{enumerate}
 
-The template code for the simple model is in the file \texttt{SIMPLE.TPL}. The
-input data is in the file \texttt{SIMPLE.DAT}. The parameter estimates are in
-the file \texttt{SIMPLE.PAR}. By default, the standard deviations and the
+The template code for the simple model is in the file \texttt{simple.tpl}. The
+input data is in the file \texttt{simple.dat}. The parameter estimates are in
+the file \texttt{simple.par}. By default, the standard deviations and the
 correlation matrix for the model parameters are estimated. They are in the file
-\texttt{SIMPLE.COR}:
+\texttt{simple.cor}:
 \X{correlation matrix}
 \begin{lstlisting}
- index      value      std.dev       1       2
-    1   a  1.9091e+00 1.5547e-01       1
-    2   b  4.0782e+00 7.0394e-01  -0.773       1
+index   name       value     std.dev        1        2
+     1  b0    4.0782e+00  7.0394e-01   1.0000
+     2  b1    1.9091e+00  1.5547e-01  -0.7730  1.0000
+
+
 \end{lstlisting}
 \X{standard deviations report}
 \XX{standard deviations report}{\fontindexentry{sc}{std}}
@@ -578,7 +581,7 @@ correlation matrix for the parameters is~given.
 \X{robust regression}
 
 The code for the model template for this example is found in the file
-\texttt{VONB.TPL}. This example is intended to demonstrate the advantages of
+\texttt{vonb.tpl}. This example is intended to demonstrate the advantages of
 using \ADM's robust regression routine over standard nonlinear least square
 regression procedures. Further discussion about the underlying theory can be
 found in the \scAD\ user's manual, but it is not necessary to understand the
@@ -705,7 +708,7 @@ outlying points without the need to expressly remove them from the data.
 
 To invoke the robust regression procedure, it is necessary to make three changes
 to the existing code. The template for the robust regression version of the
-model can be found in the file \texttt{VONBR.TPL}.
+model can be found in the file \texttt{vonbr.tpl}.
 \begin{lstlisting}
 DATA_SECTION
   init_int nobs;
@@ -779,7 +782,7 @@ to be
 \end{lstlisting}
 to invoke the robust regression function.
 
-That's all there is to it! These three changes will convert any AD Model builder
+That's all there is to it! These three changes will convert any AD Model Builder
 template from a nonlinear regression model to a robust nonlinear regression
 model.
 
@@ -855,7 +858,7 @@ estimators.
 \X{chemical kinetics}
 %xx \htmlnewfile
 
-\section{Chemical engineering: \br a chemical kinetics problem}
+\section{Chemical engineering:\br a chemical kinetics problem}
 
 This example may strike you as being fairly complicated. If so, you should
 compare it with the original solution using the so-called sensitivity equations.
@@ -1114,7 +1117,7 @@ exclude parameters from the report, if desired.
 %xx \htmlendtex
 
 %xx \htmlnewfile
-\section{Financial Modelling: a generalized autoregressive\br
+\section{Financial modelling: a generalized autoregressive\br
   conditional \hbox{heteroskedasticity} or \textsc{garch} model}
 \X{financial modelling}
 \XX{time series}{\fontindexentry{sc}{garch} Model}
@@ -1292,7 +1295,7 @@ minimizer in each stage of the minimization procedure.
 \XX{optimization}{phases}
 %xx \htmlnewfile
 
-\section{Natural resource management:\br the Schaefer-Pella-Tomlinson Model}
+\section{Natural resource management:\br the Schaefer-Pella-Tomlinson model}
 
 It is typical of many models in natural resource management that the model tends
 to be rather unstable numerically. In addition, some of the model parameters are
@@ -1355,7 +1358,7 @@ The catch $C_{t+\delta}$ over the period $(t,t+\delta)$ is given by
 \XX{Schaefer-Pella-Tomlinson model}{unfished equilibrium biomass level}
 \XX{Schaefer-Pella-Tomlinson model}{optimal productivity}
 
-\section{Bayesian considerations in the Pella-Tomlinson Model}
+\section{Bayesian considerations in the Pella-Tomlinson model}
 
 The parameter $k$ is referred to as the ``carrying capacity'' or the ``unfished
 equilibrium biomass level,'' because it is the value that the biomass of the
@@ -2410,7 +2413,7 @@ the valid index range by~1.
 \X{6-dimensional arrays}
 \X{7-dimensional arrays}
 
-The example contained in the file \texttt{FOURD.TPL} illustrates some aspects of
+The example contained in the file \texttt{fourd.tpl} illustrates some aspects of
 the use of 3 and 4-dimensional arrays. There are now examples of the use of
 arrays up to dimension~7 in the documentation. \footnote{See
   Chapter~\ref{ch:regime-switching} for an example of the use of
@@ -2544,7 +2547,7 @@ case 2: i
 \chapter{Markov Chain Simulation}
 
 \section{Introduction to the Markov Chain Monte Carlo\br
-  Approach in Bayesian Analysis}
+  approach in Bayesian analysis}
 \XX{command line arguments}{\fontindexentry{tt}%
   {-mcmc N Markov chain Monte Carlo}}
 \XX{command line arguments}{\fontindexentry{tt}{-mcscale}}
@@ -2934,7 +2937,7 @@ This examples highlights two features of \ADM: 1) the use of a numerical
 integration routine within a statistical parameter estimation model, and 2) the
 use of the \texttt{ad\_begin\_funnel} mechanism to reduce the size of temporary
 file storage required. It also provides a performance comparison between \ADM\
-and Splus.
+and S-Plus.
 
 This problem investigates a model that predicts a relationship between the size
 and frequency of wildfires. It is assumed that the probability of observing a
@@ -3146,14 +3149,14 @@ elapsed time = 244 seconds nsteps = 11 f = 627.310624
 tau 23.115275 nu 49009470510.133156 beta 0.159369 sigma 8.658643
 \end{lstlisting}
 
-\section{A comparison with Splus for the forestry model}
+\section{A comparison with S-Plus for the forestry model}
 
-The Splus minimizing routine \texttt{nlminb} was used to fit the model. Fitting
-the three-parameter model with Splus required approximately 280~seconds,
+The S-Plus minimizing routine \texttt{nlminb} was used to fit the model. Fitting
+the three-parameter model with S-Plus required approximately 280~seconds,
 compared to 6~seconds with \ADM, so that \ADM\ was approximately 45 times faster
 for this simple problem.
 
-For the four parameter problem with beta estimated, the SPLUS routine exited
+For the four parameter problem with beta estimated, the S-Plus routine exited
 after 14~minutes and 30~seconds, reporting false convergence with a function
 value of~627.338.
 
@@ -3165,7 +3168,7 @@ freq
  167 84 61 29 19 17 4 4 1 0 1 1
 \end{lstlisting}
 where the first line contains the bounds for the size categories and the second
-line contains the number of observations in each size category. The Splus code
+line contains the number of observations in each size category. The S-Plus code
 with fixed beta for the example is
 \begin{lstlisting}
 obj.20<-
@@ -3210,7 +3213,7 @@ function(z, A, TAU, NU, SIGMA)
   exp(-0.5 * z^2 + TAU * (-1 + exp(-NU * A^2/3 * exp(SIGMA * z))))
 }
 \end{lstlisting}
-To run the example in Splus with the same initial values, use the following
+To run the example in S-Plus with the same initial values, use the following
 values
 \begin{lstlisting}
   logtau 0  lognu 0  logsigma -2
@@ -4304,24 +4307,27 @@ The user can refer to the object in the code simply by using its name.
 %-- Added by Steve Martell, Mar 27, 2014
 \section{Using control files for bounded parameters}
 \X{\fontindexentry{tt}{init\_bounded\_number}}
-\XX{Using control file for bounded parameters in \ADM}{\fontindexentry{tt}{init\_bounded\_number}}
+\XX{Using control file for bounded parameters in \ADM}%
+{\fontindexentry{tt}{init\_bounded\_number}}
 Bounded parameters defined in the procedure section take the following format:
 \begin{lstlisting}
   init_bounded_number a(lb,ub,i_phz);
 \end{lstlisting}
-where lb is the lower bound, ub is the upper bound and i\_phz is and integer representing 
-the phase of estimation.  There is also an option to pass a vector containing 3 elements
-set the lower and upper bounds and the phase of estimation.  This is often desirable as this
-vector can be read in from the data file and does not require recompiling of the code to change
-the parameter bounds or the phase of estimation.
+where lb is the lower bound, ub is the upper bound and i\_phz is and integer
+representing the phase of estimation. There is also an option to pass a vector
+containing 3 elements set the lower and upper bounds and the phase of
+estimation. This is often desirable as this vector can be read in from the data
+file and does not require recompiling of the code to change the parameter bounds
+or the phase of estimation.
 
 \begin{lstlisting}
   init_bounded_number a(luphz_vector);
 \end{lstlisting}
 
-This has also been implemented for the \texttt{init\_bounded\_number\_vector}, where a matrix 
-read in from the data section is used to set the lower and upper bounds of each element and 
-phase of estimation.  The  following is a simple example implementing these new features.
+This has also been implemented for the \texttt{init\_bounded\_number\_vector},
+where a matrix read in from the data section is used to set the lower and upper
+bounds of each element and phase of estimation. The following is a simple
+example implementing these new features.
 
 \begin{lstlisting}
 DATA_SECTION
@@ -4351,12 +4357,12 @@ INITIALIZATION_SECTION
   sig 1.0;
 
 PROCEDURE_SECTION
-  
+
   y_hat = a + b * x;
   y2_hat = theta(1) + theta(2)*x;
   f     = dnorm(y - y_hat, sig);
   f    += dnorm(y-y2_hat,theta(3));
-\end{lstlisting} 
+\end{lstlisting}
 
 And the input data file is here:
 
@@ -4364,9 +4370,9 @@ And the input data file is here:
 # number of observations
      10
 # observed Y values
-    1.4  4.7  5.1  8.3  9.0  14.5  14.0  13.4  19.2  18 
+    1.4  4.7  5.1  8.3  9.0  14.5  14.0  13.4  19.2  18
 # observed x values
-    -1  0 1  2  3  4  5  6  7  8        
+    -1  0 1  2  3  4  5  6  7  8
 
 #a_lup
 -5  5  1
@@ -4387,7 +4393,7 @@ And the input data file is here:
 
 \chapter{The Regression Function}\label{ch:appendix-regression-function}
 
-The \texttt{robust\_regression} function calculates the log-likelihood function
+The \texttt{regression} function calculates the log-likelihood function
 for the standard statistical model of independent normally distributed errors,
 with mean~0 and equal variance. The code is written in terms of \scAD\ objects,
 such as \texttt{dvariable} and \texttt{dvar\_vector}. They are described in the
@@ -4395,11 +4401,10 @@ such as \texttt{dvariable} and \texttt{dvar\_vector}. They are described in the
 \begin{lstlisting}
 dvariable regression(const dvector& obs,const dvar_vector& pred)
 {
-  double nobs=double(size_count(obs));  // get the number of
-                                        // observations
+  double nobs=double(size_count(obs));  // number of observations
   dvariable vhat=norm2(obs-pred);  // sum of squared deviations
-  vhat/=nobs;                      //mean of squared deviations
-  return (.5*nobs*log(vhat));     //return log-likelihood value
+  vhat/=nobs;                        // mean of squared deviations
+  return (.5*nobs*log(vhat));        // return log-likelihood value
 }
 \end{lstlisting}
 

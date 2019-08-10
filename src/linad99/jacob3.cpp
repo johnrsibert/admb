@@ -28,13 +28,6 @@
   #include <sys/types.h>
   #include <unistd.h>
 #endif
-#ifdef _MSC_VER
-  #define LSEEK _lseek
-  #define  read _read
-  #define write _write
-  #define open _open
-  #define close _close
-#endif
 
 #if !defined(_MSC_VER)
   #include <iostream>
@@ -152,7 +145,7 @@ void gradient_structure::jacobcalc(int nvar, const uostream& ofs)
 
     if(GRAD_STACK1->ptr <= GRAD_STACK1->ptr_first)
     {
-#ifdef SAFE_ALL
+#ifdef DEBUG
         cerr << "warning -- calling gradcalc when no calculations generating"
          << endl << "derivative information have occurred" << endl;
 #endif

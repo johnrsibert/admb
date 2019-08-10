@@ -34,13 +34,15 @@ TEST_F(test_option_match, calls)
   ASSERT_EQ(2, option_match(argc3, argv3, option3, nopt));
   ASSERT_EQ(0, nopt);
 }
-/*
+#ifndef _MSC_VER
 TEST_F(test_option_match, check_null_indexes)
 {
   int option_match(char* _s, const char* option);
 
+#if !defined(__GNUC__) && !defined(__WIN32)
   char* p = strtok(NULL, " ");
   ASSERT_TRUE(p == NULL);
+#endif
   //Will produce segmentation fault:
   //ASSERT_NE(0, strcmp(p, " "));
 
@@ -51,7 +53,7 @@ TEST_F(test_option_match, check_null_indexes)
   ASSERT_EQ(4, option_match("abc def ghi jkl", "jkl")); 
   ASSERT_EQ(-1, option_match("abc def ghi jkl", "f g")); 
 }
-*/
+#endif
 TEST_F(test_option_match, check_null_indexes_opt)
 {
   int option_match(char* _s, const char* option, int& _nopt);

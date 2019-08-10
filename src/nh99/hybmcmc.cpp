@@ -1,12 +1,6 @@
-/*
- * $Id$
- *
+/**
  * Author: David Fournier
  * Copyright (c) 2008-2012 Regents of the University of California
- */
-/**
- * \file
- * Description not yet available.
  */
 #include <sstream>
 using std::istringstream;
@@ -108,7 +102,7 @@ void function_minimizer::hybrid_mcmc_routine(int nmcmc,int iseed0,double dscale,
   {
     cerr << " You must declare at least one object of type sdreport "
          << endl << " to do the mcmc calculations" << endl;
-     return;
+    //return;
   }
   {
     //ofstream of_bf("testbf");
@@ -364,10 +358,7 @@ void function_minimizer::hybrid_mcmc_routine(int nmcmc,int iseed0,double dscale,
           ad_exit(1);
         }
         // get last x vector from file
-#ifndef OPT_LIB
-        assert(parsave.size() >= 0);
-#endif
-        std::streamoff sz = (unsigned int)parsave.size() * sizeof(double);
+        std::streamoff sz = parsave.size() * sizeof(double);
         // backup from end of file
         uis.seekg(-sz, ios::end);
         uis >> parsave;
@@ -475,8 +466,8 @@ void function_minimizer::hybrid_mcmc_routine(int nmcmc,int iseed0,double dscale,
       z=x0;
       gradient_structure::set_NO_DERIVATIVES();
       dvector g(1,nvar);
-      //cout << "initial ll value " << get_hybrid_monte_carlo_value(nvar,z,g)
-      //     << endl;
+      cout << "initial ll value " << get_hybrid_monte_carlo_value(nvar,z,g)
+          << endl;
       dvector y(1,nvar);
       y.initialize();
 
@@ -551,7 +542,12 @@ void function_minimizer::hybrid_mcmc_routine(int nmcmc,int iseed0,double dscale,
        int ii=1;
        initial_params::copy_all_values(parsave,ii);
        // detmine whether to go forward or backward
-
+       cout << "Starting from y=" << y << endl;
+       cout << "Starting from z=" << z << endl;
+       cout << "Starting from gr=" << g << endl;
+       cout << "Starting from nll=" << beginprior << endl;
+       // cout << "Starting from chd=" << chd << endl;
+ 
        double iaccept=0.0;
        for (int is=1;is<=number_sims;is++)
        {

@@ -1,61 +1,46 @@
-/*
- * $Id$
- *
+/**
  * Author: David Fournier
  * Copyright (c) 2008-2012 Regents of the University of California
- */
-/**
- * \file
- * Description not yet available.
  */
 #include "fvar.hpp"
 #include "admb_messages.h"
 
 /**
- * Description not yet available.
- * \param
- */
- dvar4_array::dvar4_array(int nrl,int nrh)
- {
-   allocate(nrl,nrh);
- }
+Construct vector of dvar4_array with dimension nrl to nrh.
 
-/**
-Copy constructor
+\param nrl lower index
+\param nrh upper index
 */
-dvar4_array::dvar4_array(const dvar4_array& m2)
+dvar4_array::dvar4_array(int nrl, int nrh)
 {
-  if (m2.shape)
+  allocate(nrl, nrh);
+}
+/// Copy constructor
+dvar4_array::dvar4_array(const dvar4_array& other)
+{
+  shallow_copy(other);
+}
+/**
+Shallow copy other data structure pointers.
+
+\param other dvar4_array
+*/
+void dvar4_array::shallow_copy(const dvar4_array& other)
+{
+  if (other.shape)
   {
-    shape = m2.shape;
-    (shape->ncopies)++;
-    t = m2.t;
+    shape = other.shape;
+    ++(shape->ncopies);
+    t = other.t;
   }
   else
   {
-    shape = NULL;
-    t = NULL;
+#ifdef DEBUG
+    cerr << "Warning -- Unable to shallow copy an unallocated dvar4_array.\n";
+#endif
+    allocate();
   }
 }
-
-/**
- * Description not yet available.
- * \param
- */
- void dvar4_array::shallow_copy(const dvar4_array& m2)
- {
-   if (m2.shape)
-   {
-     shape=m2.shape;
-     (shape->ncopies)++;
-     t = m2.t;
-   }
-   else
-   {
-     shape=NULL;
-     t=NULL;
-   }
- }
 
 /**
  * Description not yet available.
@@ -77,35 +62,30 @@ dvar4_array::dvar4_array(const dvar4_array& m2)
      return *this;
    }
  }
-
-/**
- * Description not yet available.
- * \param
- */
- void dvar4_array::deallocate()
- {
-   if (shape)
-   {
-     if (shape->ncopies)
-     {
-       (shape->ncopies)--;
-     }
-     else
-     {
-       t += hslicemin();
-       delete [] t;
-       t=NULL;
-       delete shape;
-       shape=NULL;
-     }
-   }
-#    if defined(SAKE_ARRAYS)
-   else
-   {
-     cerr << "Warning -- trying to deallocate an unallocated d4_array"<<endl;
-   }
-#    endif
- }
+/// Deallocate dvar4_array memory.
+void dvar4_array::deallocate()
+{
+  if (shape)
+  {
+    if (shape->ncopies > 0)
+    {
+      --(shape->ncopies);
+    }
+    else
+    {
+      t += indexmin();
+      delete [] t;
+      delete shape;
+    }
+    allocate();
+  }
+#ifdef DEBUG
+  else
+  {
+    cerr << "Warning -- Unable to deallocate an unallocated dvar4_array.\n";
+  }
+#endif
+}
 
 /**
 Destructor

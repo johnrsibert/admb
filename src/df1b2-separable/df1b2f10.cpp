@@ -1,12 +1,6 @@
-/*
- * $Id$
- *
+/**
  * Author: David Fournier
  * Copyright (c) 2008-2012 Regents of the University of California
- */
-/**
- * \file
- * Description not yet available.
  */
 #include <df1b2fun.h>
 
@@ -320,8 +314,8 @@ void test_smartlist::read_buffer(void)
 #ifdef OPT_LIB
     ::read(fp,&nbytes,sizeof(unsigned int));
 #else
-    ssize_t ret = ::read(fp,&nbytes,sizeof(unsigned int));
-    assert(ret != -1);
+    ssize_t result = ::read(fp,&nbytes,sizeof(unsigned int));
+    assert(result != -1);
 #endif
     if (nbytes <= 0 || nbytes > bufsize)
     {

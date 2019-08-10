@@ -1,6 +1,4 @@
-/*
- * $Id$
- *
+/**
  * Author: David Fournier
  * Copyright (c) 2008-2012 Regents of the University of California
  *
@@ -49,16 +47,28 @@ Macro definitions.
 #if defined(__MINGW64__)
   #define OFF_T off64_t
   #define LSEEK lseek64
+  #define READ read
+  #define WRITE write
   #if defined(AD_LONG_INT)
     #error "Error: AD_LONG_INT should not be defined."
   #else
     #define AD_LONG_INT long long int
   #endif
+#elif defined(_MSC_VER)
+  #define OFF_T __int64
+  #define LSEEK _lseeki64
+  #define READ _read
+  #define WRITE _write
+  #if defined(AD_LONG_INT)
+    #error "Error: AD_LONG_INT should not be defined."
+  #else
+    #define AD_LONG_INT long int
+  #endif
 #else
   #define OFF_T off_t
-  #ifndef _MSC_VER
-    #define LSEEK lseek
-  #endif
+  #define LSEEK lseek
+  #define READ read
+  #define WRITE write
   #if defined(AD_LONG_INT)
     #error "Error: AD_LONG_INT should not be defined."
   #else
@@ -66,13 +76,16 @@ Macro definitions.
   #endif
 #endif
 
-#include <math.h>
-// Borrow definition of M_PI from GCC
+#ifdef __OPENCC__
+  #define nullptr 0
+#endif
+
+#include <cmath>
 #ifndef M_PI
-#   define M_PI 3.14159265358979323846
+  #error "Error: M_PI is not defined."
 #endif
 #ifndef PI
-#   define PI 3.14159265358979323846
+  #define PI M_PI
 #endif
 
 #if defined(__GNUC__) && (__GNUC__ < 3)
@@ -133,8 +146,6 @@ Macro definitions.
     #include <fcntl.h>
   #endif
 #endif
-
-#define USE_HIGHER_ARRAYS
 
 #if defined(__BORLANDC__) || defined (_MSC_VER) || defined(__WAT32__)
 #   include <io.h>
@@ -489,13 +500,18 @@ class vector_shape
 {
  public:
 #if defined(USE_VECTOR_SHAPE_POOL)
-   static vector_shape_pool *xpool;
-   void *operator new(size_t);
-   void operator delete(void *ptr, size_t)
-   {
-      xpool->free(ptr);
-   }
+  static vector_shape_pool& get_xpool()
+  {
+    static vector_shape_pool xpool(sizeof(vector_shape));
+    return xpool;
+  }
+  void* operator new(size_t);
+  void operator delete(void* ptr, size_t)
+   { vector_shape::get_xpool().free(ptr); }
+  vector_shape(const vector_shape&) = delete;
+  vector_shape& operator=(const vector_shape&) =  delete;
 #endif
+
    unsigned int ncopies;
    void shift(int min);
    int index_min;
@@ -664,7 +680,7 @@ class lvector
    {
       return shape ? shape->index_max - shape->index_min + 1 : 0;
    }
-   void shift(int min);
+   lvector& shift(int min);
 
    void fill(const char *s);
    void fill_seqadd(const AD_LONG_INT &, const AD_LONG_INT &);
@@ -707,7 +723,7 @@ class lvector
    const AD_LONG_INT& operator[](int i) const;
    const AD_LONG_INT& operator()(int i) const;
 
-   lvector operator() (const lvector & u);
+   lvector operator()(const ivector& indexes);
 
    lvector & operator=(const lvector & t);
 
@@ -835,6 +851,9 @@ public:
   void check_list(void);
   size_t total_addresses() const;
 
+  double* get(const int i) const
+    { return &(dlink_addresses[i]->get_address()->x); }
+
   friend double_and_int *gradnew();
   friend void df_check_derivative_values(void);
   friend void df_check_derivative_values_indexed(void);
@@ -951,7 +970,6 @@ class grad_stack
      double *dep_addr, double *ind_addr1,
      double *ind_addr2);
 
-
    void set_gradient_stack0(void (*func) (void), double *dep_addr);
 
    void set_gradient_stack1(void (*func) (void),
@@ -989,6 +1007,16 @@ class grad_stack
    int &gradfile_handle();
 #endif
    char *get_gradfile_name();
+
+  size_t total() const
+  {
+    size_t count = 0;
+    for (grad_stack_entry* current = ptr_first; current != ptr; ++current)
+    {
+      ++count;
+    }
+    return count;
+  }
    friend class gradient_structure;
    //int get_ngradfiles();
 };
@@ -1428,7 +1456,7 @@ public:
 
    friend char *fform(const char *, const prevariable &);
 
-   void operator+=(const prevariable & t1);
+   prevariable& operator+=(const prevariable&);
    void operator +=(double t1);
 
    void operator-=(const prevariable & t1);
@@ -1947,6 +1975,10 @@ class arr_list
       max_last_offset = 0;
       number_arr_links = 0;
    }
+
+  arr_link* get_last() const
+    { return last; }
+
    unsigned long int get_last_offset()
    {
       return last_offset;
@@ -1977,14 +2009,6 @@ class arr_list
  */
 class arr_link
 {
-#if defined(USE_VECTOR_SHAPE_POOL)
-   static vector_shape_pool *xpool;
-   void *operator new(size_t);
-   void operator delete(void* ptr, size_t)
-   {
-      xpool->free(ptr);
-   }
-#endif
    arr_link *prev;
    arr_link *next;
    arr_link *free_prev;
@@ -1993,8 +2017,33 @@ class arr_link
    // unsigned int     free_list_status;
    unsigned int size;
    unsigned long int offset;
+
  public:
-   arr_link();
+#if defined(USE_VECTOR_SHAPE_POOL)
+  static vector_shape_pool& get_xpool()
+  {
+    static vector_shape_pool xpool(sizeof(arr_link));
+    return xpool;
+  }
+  void* operator new(size_t);
+  void operator delete(void* ptr, size_t)
+    { arr_link::get_xpool().free(ptr); }
+  arr_link(const arr_link&) = delete;
+  arr_link& operator=(const arr_link&) = delete;
+#endif
+
+  arr_link();
+
+  arr_link* get_prev() const
+    { return prev; }
+  arr_link* get_next() const
+    { return next; }
+  unsigned int get_size() const
+    { return size; }
+  unsigned long get_offset() const
+    { return offset; }
+  unsigned int get_status() const
+    { return status; }
 
    friend double_and_int *arr_new(unsigned int);
    friend void arr_free(double_and_int *);
@@ -2302,6 +2351,8 @@ public:
 
    friend void make_indvar_list(const dvar_vector &);
    friend class array_size;
+
+  unsigned int get_ncopies() const { return shape ? shape->ncopies : 0; }
 };
 
  /*
@@ -2369,7 +2420,7 @@ class dvar_matrix
    friend class banded_symmetric_dmatrix;
    friend class banded_lower_triangular_dmatrix;
    friend class dvar3_array;
-   void shallow_copy(const dvar_matrix &);
+   void shallow_copy(const dvar_matrix&);
    dvar_matrix();
    void allocate(int nrl, int nrh, int ncl, int nch);
    void allocate(int nrl, int nrh);
@@ -2507,7 +2558,7 @@ class dvar_matrix
       return (prevariable((m[i]).va + j));
    }
 #else
-   inline prevariable operator () (register int i, register int j)
+   inline prevariable operator()(int i, int j)
    {
       return ((m[i]).va + j);
    }
@@ -2516,12 +2567,12 @@ class dvar_matrix
    prevariable operator () (int i, int j);
 #endif
 
-   inline double &elem_value(register int i, register int j)
+   inline double &elem_value(int i, int j)
    {
       return *(double *) ((m[i]).va + j);
    }
 
-   inline const double &elem_value(register int i, register int j) const
+   inline const double &elem_value(int i, int j) const
    {
       return *(double *) ((m[i]).va + j);
    }
@@ -2532,7 +2583,7 @@ class dvar_matrix
       return (prevariable((m[i]).va + j));
    }
 #else
-   inline prevariable operator() (register int i, register int j) const
+   inline prevariable operator()(int i, int j) const
    {
       return ((m[i]).va + j);
    }
@@ -2604,6 +2655,8 @@ class dvar_matrix
    friend dvariable sumsq(const dvar_matrix &);
 
    friend void copy_status(const ostream & s, const dvar_matrix & m1);
+
+  unsigned int get_ncopies() const { return shape ? shape->ncopies : 0; }
 };
 
 #ifdef OPT_LIB
@@ -2651,7 +2704,6 @@ int count_factor(const ivector & v);
 
  //void gradcalc( int , double *);
 void gradcalc(int nvar, const dvector & g);
-double gradcalc(int nvar, const dvector& g, dvariable& f);
 void slave_gradcalc(void);
 
 /**
@@ -2683,10 +2735,12 @@ class dmatrix
       return *this;
    }
    void shallow_copy(const dmatrix &);
-   int operator!(void) const
-   {
-      return (shape == NULL);
-   }
+
+  /// Returns true if dmatrix is empty, else false.
+  bool operator!() const
+  {
+    return shape == nullptr;
+  }
 
    dmatrix sub(int, int);
    dmatrix(void);
@@ -2736,6 +2790,16 @@ class dmatrix
    // copy initializer
 
    ~dmatrix();
+
+  dvector* begin() const
+  {
+    return m ? &m[rowmin()] : nullptr;
+  }
+  dvector* end() const
+  {
+    return m ? begin() + rowsize() : nullptr;
+  }
+
    void save_dmatrix_derivatives(const dvar_matrix_position & pos) const;
    void save_dmatrix_derivatives_na(const dvar_matrix_position & pos)
       const;
@@ -2743,22 +2807,28 @@ class dmatrix
    void save_dmatrix_position(void) const;
    //void save_dmatrix_derivatives(void);
 
-   int indexmin(void) const
-   {
-      return index_min;
-   }
-   int indexmax(void) const
-   {
-      return index_max;
-   }
-   int rowmin(void) const
-   {
-      return index_min;
-   }
-   int rowmax(void) const
-   {
-      return index_max;
-   }
+  int indexmin() const
+  {
+    return rowmin();
+  }
+  int indexmax() const
+  {
+    return rowmax();
+  }
+  int rowmin() const
+  {
+    return index_min;
+  }
+  int rowmax() const
+  {
+    return index_max;
+  }
+  // returns the number of rows
+  unsigned int rowsize() const
+  {
+    return static_cast<unsigned int>(rowmax() - rowmin() + 1);
+  }
+
    int colmin(void) const
    {
       return ((*this) (indexmin()).indexmin());
@@ -2767,12 +2837,6 @@ class dmatrix
    {
       return ((*this) (indexmin()).indexmax());
    }
-  // returns the number of rows
-  unsigned int rowsize() const
-  {
-    int size = rowmax() - rowmin() + 1;
-    return static_cast<unsigned int>(size < 0 ? 0 : size);
-  }
   // returns the number of columns
   unsigned int colsize() const
   {
@@ -2783,9 +2847,9 @@ class dmatrix
    void colshift(int min);
 
    void write_on(const ostream &) const;
-   void write_on(const uostream &) const;
+   uostream& write_on(const uostream&) const;
    void read_from(const istream &);
-   void read_from(const uistream &);
+   uistream& read_from(const uistream&);
 
    //void colfill(const int&n,...);
    //void rowfill(const int&n,...);
@@ -2824,11 +2888,11 @@ class dmatrix
    const dvector& operator[](int) const;
 
 #if defined(OPT_LIB) && !defined(__INTEL_COMPILER)
-   inline double &operator() (register int i, register int j)
+   inline double& operator()(int i, int j)
    {
       return (*(m[i].v + j));
    }
-   inline const double &operator() (register int i, register int j) const
+   inline const double& operator()(int i, int j) const
    {
       return (*(m[i].v + j));
    }
@@ -3635,23 +3699,32 @@ class d3_array
    void initialize(int sl, int sh, int nrl, const ivector & nrh,
      int ncl, const ivector & nch);
 
-   //access functions
-   int indexmin(void) const
-   {
-      return shape->slice_min;
-   }
-   int indexmax(void) const
-   {
-      return shape->slice_max;
-   }
-   int slicemin(void) const
-   {
-      return shape->slice_min;
-   }
-   int slicemax(void) const
-   {
-      return shape->slice_max;
-   }
+  dmatrix* begin() const
+  {
+    return t ? &t[slicemin()] : nullptr;
+  }
+  dmatrix* end() const
+  {
+    return t ? begin() + slicesize() : nullptr;
+  }
+  //access functions
+  int indexmin() const
+  {
+    return slicemin();
+  }
+  int indexmax() const
+  {
+    return slicemax();
+  }
+  int slicemin() const
+  {
+    return shape ? shape->slice_min : 1;
+  }
+  int slicemax() const
+  {
+    return shape ? shape->slice_max : 0;
+  }
+
    int colmin(void) const
    {
       return ((*this) (slicemin()).colmin());
@@ -3672,8 +3745,7 @@ class d3_array
   // returns the number of rows
   unsigned int slicesize() const
   {
-    int size = slicemax() - slicemin() + 1;
-    return static_cast<unsigned int>(size < 0 ? 0 : size);
+    return static_cast<unsigned int>(slicemax() - slicemin() + 1);
   }
 
    // returns the number of rows
@@ -3720,6 +3792,8 @@ class d3_array
    void fill_randn_ni(long int &n);
    double fill_seqadd(double, double);
    void operator /=(double d);
+
+  unsigned int get_ncopies() const { return shape ? shape->ncopies : 0; }
 };
 #ifdef OPT_LIB
 inline const double& d3_array::operator()(int k, int i, int j) const
@@ -3836,23 +3910,23 @@ class i3_array
    void initialize(int sl, int sh, int nrl, const ivector & nrh, int ncl,
      const ivector & nch);
 
-   //access functions
-   int indexmin(void) const
-   {
-      return shape->slice_min;
-   }
-   int indexmax(void) const
-   {
-      return shape->slice_max;
-   }
-   int slicemin(void) const
-   {
-      return shape->slice_min;
-   }
-   int slicemax(void) const
-   {
-      return shape->slice_max;
-   }
+  //access functions
+  int indexmin() const
+  {
+    return slicemin();
+  }
+  int indexmax() const
+  {
+    return slicemax();
+  }
+  int slicemin() const
+  {
+    return shape ? shape->slice_min : 1;
+  }
+  int slicemax() const
+  {
+    return shape ? shape->slice_max : 0;
+  }
    int colmin(void) const
    {
       return ((*this) (slicemin()).colmin());
@@ -3869,11 +3943,11 @@ class i3_array
    {
       return ((*this) (slicemin()).rowmax());
    }
-   // returns the number of rows
-   int slicesize() const
-   {
-      return (slicemax() - slicemin() + 1);
-   }
+  // returns the number of rows
+  unsigned int slicesize() const
+  {
+    return static_cast<unsigned int>(slicemax() - slicemin() + 1);
+  }
    // returns the number of rows
    int rowsize() const
    {
@@ -3884,68 +3958,125 @@ class i3_array
    {
       return (colmax() - colmin() + 1);
    }
-   void initialize(void);
+   void initialize();
 
-   imatrix & elem(int k)
-   {
-      return (t[k]);
-   }
-   const imatrix & elem(int k) const
-   {
-      return t[k];
-   }
-   int &operator()(int k, int i, int j);
-   ivector & operator()(int k, int i);
-   imatrix & operator[](int i);
-   imatrix & operator()(int i);
-   const int &operator()(int k, int i, int j) const;
-   const ivector & operator()(int k, int i) const;
-   const imatrix & operator[](int i) const;
-   const imatrix & operator()(int i) const;
+  imatrix& elem(int i);
+  const imatrix& elem(int i) const;
+  int& operator()(int i, int j, int k);
+  ivector& operator()(int i, int j);
+  imatrix& operator[](int i);
+  imatrix& operator()(int i);
+  const int& operator()(int i, int j, int k) const;
+  const ivector& operator()(int i, int j) const;
+  const imatrix& operator[](int i) const;
+  const imatrix& operator()(int i) const;
 
-   i3_array & operator=(const i3_array & m1);
-   i3_array & operator=(int x);
+  i3_array& operator=(const i3_array& other);
+  i3_array& operator=(int value);
 
    void fill_randu(long int &n);
    void fill_randn(long int &n);
    void fill_randu_ni(long int &n);
    void fill_randn_ni(long int &n);
-};
 
-#ifdef OPT_LIB
-inline const int& i3_array::operator()(int k, int i, int j) const
+  unsigned int get_ncopies() const { return shape ? shape->ncopies : 0; }
+};
+inline imatrix& i3_array::elem(int i)
 {
-  return ((t[k].m[i]).v)[j];
-}
-inline const ivector& i3_array::operator()(int k, int i) const
-{
-  return t[k].m[i];
-}
-inline const imatrix& i3_array::operator()(int i) const
-{
+  if (i < slicemin())
+  {
+    cerr << "matrix bound exceeded -- row index too low in"
+         << "ivector& i3_array::elem(int).\n";
+    ad_exit(1);
+  }
+  if (i > slicemax())
+  {
+    cerr << "matrix bound exceeded -- row index too high in"
+         << "ivector& i3_array::elem(int).\n";
+    ad_exit(1);
+  }
   return t[i];
 }
-inline const imatrix& i3_array::operator[](int i) const
+inline const imatrix& i3_array::elem(int i) const
 {
-  return t[i];
-}
-inline int& i3_array::operator()(int k, int i, int j)
-{
-  return ((t[k].m[i]).v)[j];
-}
-inline ivector& i3_array::operator()(int k, int i)
-{
-  return t[k].m[i];
-}
-inline imatrix& i3_array::operator()(int i)
-{
+  if (i < slicemin())
+  {
+    cerr << "matrix bound exceeded -- row index too low in"
+         << "ivector& i3_array::elem(int).\n";
+    ad_exit(1);
+  }
+  if (i > slicemax())
+  {
+    cerr << "matrix bound exceeded -- row index too high in"
+         << "ivector& i3_array::elem(int).\n";
+    ad_exit(1);
+  }
   return t[i];
 }
 inline imatrix& i3_array::operator[](int i)
 {
+#ifdef OPT_LIB
   return t[i];
-}
+#else
+  return elem(i);
 #endif
+}
+inline imatrix& i3_array::operator()(int i)
+{
+#ifdef OPT_LIB
+  return t[i];
+#else
+  return elem(i);
+#endif
+}
+inline ivector& i3_array::operator()(int i, int j)
+{
+#ifdef OPT_LIB
+  return t[i].m[j];
+#else
+  return elem(i)(j);
+#endif
+}
+inline int& i3_array::operator()(int i, int j, int k)
+{
+#ifdef OPT_LIB
+  return ((t[i].m[j]).v)[k];
+#else
+  return elem(i)(j, k);
+#endif
+}
+inline const imatrix& i3_array::operator[](int i) const
+{
+#ifdef OPT_LIB
+  return t[i];
+#else
+  return elem(i);
+#endif
+}
+inline const imatrix& i3_array::operator()(int i) const
+{
+#ifdef OPT_LIB
+  return t[i];
+#else
+  return elem(i);
+#endif
+}
+inline const ivector& i3_array::operator()(int i, int j) const
+{
+#ifdef OPT_LIB
+  return t[i].m[j];
+#else
+  return elem(i)(j);
+#endif
+}
+inline const int& i3_array::operator()(int i, int j, int k) const
+{
+#ifdef OPT_LIB
+  return ((t[i].m[j]).v)[k];
+#else
+  return elem(i)(j, k);
+#endif
+}
 
 #   if defined(__NUMBERVECTOR__)
 class param_init_matrix_vector;
@@ -4030,24 +4161,19 @@ public:
 
    d3_array value(const dvar3_array &);
 
-   //access functions
-   int indexmin(void) const
-   {
-      return shape->slice_min;
-   }
-   int indexmax(void) const
-   {
-      return shape->slice_max;
-   }
-   int slicemin(void) const
-   {
-      return shape->slice_min;
-   }
-   int slicemax(void) const
-   {
-      return (shape->slice_max);
-   }
-   int colmin(void) const
+  //access functions
+  int indexmin() const { return slicemin(); }
+  int indexmax() const { return slicemax(); }
+  int slicemin() const { return shape ? shape->slice_min : 1; }
+  int slicemax() const { return shape ? shape->slice_max : 0; }
+  // returns the number of rows
+  unsigned int slicesize() const
+  {
+    //assert(slicemin() <= slicemax());
+    return static_cast<unsigned int>(slicemax() - slicemin() + 1);
+  }
+
+   int colmin() const
    {
       return ((*this) (slicemin()).colmin());
    }
@@ -4063,12 +4189,6 @@ public:
    {
       return ((*this) (slicemin()).rowmax());
    }
-  // returns the number of rows
-  unsigned int slicesize() const
-  {
-    int size = slicemax() - slicemin() + 1;
-    return static_cast<unsigned int>(size < 0 ? 0 : size);
-  }
    // returns the number of rows
    int rowsize() const
    {
@@ -4079,22 +4199,38 @@ public:
    {
       return (colmax() - colmin() + 1);
    }
-   dvar_matrix & elem(int k)
-   {
-      return (t[k]);
-   }
-   prevariable elem(int i, int j, int k)
-   {
-      return (t[k].elem(i, j));
-   }
-   const dvar_matrix & elem(int k) const
-   {
-      return t[k];
-   }
-   const prevariable elem(int i, int j, int k) const
-   {
-      return t[k].elem(i, j);
-   }
+  /**
+  \ingroup matop?
+  Retrieves an element of a dvar3_array.
+  \param i Integer specifying slice
+  \return dvariable containing the desired element
+  */
+  dvar_matrix& elem(int i) { return t[i]; }
+  /**
+  \ingroup matop?
+  Retrieves an element of a dvar3_array.
+  \param i Integer specifying slice
+  \param j Integer specifying row within slice
+  \param k integer specifying column within row
+  \return dvariable containing the desired element
+  */
+  prevariable elem(int i, int j, int k) { return t[i].elem(j, k); }
+  /**
+  \ingroup matop?
+  Retrieves an element of a dvar3_array.
+  \param i Integer specifying slice
+  \return dvariable containing the desired element
+  */
+  const dvar_matrix& elem(int i) const { return t[i]; }
+  /**
+  \ingroup matop?
+  Retrieves an element of a dvar3_array.
+  \param i Integer specifying slice
+  \param j Integer specifying row within slice
+  \param k integer specifying column within row
+  \return dvariable containing the desired element
+  */
+  const prevariable elem(int i, int j, int k) const { return t[i].elem(j, k); }
 
 #ifdef OPT_LIB
    inline const prevariable operator() (int k, int i, int j) const
@@ -4159,6 +4295,8 @@ public:
    double fill_seqadd(double, double);
    void operator/=(const prevariable &);
    void operator /=(double);
+
+  unsigned int get_ncopies() const { return shape ? shape->ncopies : 0; }
 };
 
 dvariable inv_cumd_exponential(const prevariable & y);
@@ -4433,14 +4571,14 @@ void set_value_partial(const dvar_matrix & x, const dvar_vector & v,
 void set_value_partial(dvar3_array & x, const dvar_vector & v, const int &ii,
   int n);
 
-int size_count(const dvar_vector & x);
-int size_count(const dvar_matrix & x);
-int size_count(const dvar3_array & x);
-int size_count(const dvar4_array & x);
-int size_count(const dvector & x);
-int size_count(const dmatrix & x);
-int size_count(const d3_array & x);
-int size_count(const d4_array & x);
+unsigned int size_count(const dvar_vector& x);
+unsigned int size_count(const dvar_matrix& x);
+unsigned int size_count(const dvar3_array& x);
+unsigned int size_count(const dvar4_array& x);
+unsigned int size_count(const dvector& x);
+unsigned int size_count(const dmatrix& x);
+unsigned int size_count(const d3_array& x);
+unsigned int size_count(const d4_array& x);
 
 int size_count_partial(const dvar_vector & x, int);
 int size_count_partial(const dvar_matrix & x, int);
@@ -4574,11 +4712,12 @@ public:
   dvar_vector_position(const dvar_vector& v);
   dvar_vector_position(const dvar_vector_position& dvp);
 
-  double &operator() (const int &i);
+  double& operator()(const int& i);
 
   int min;
   int max;
   double_and_int* va;
+
   int indexmin() const
   {
     return min;
@@ -5018,22 +5157,6 @@ class d4_array
    //access functions
    friend class four_array_shape;
 
-   int indexmin(void)
-   {
-      return (shape->hslice_min);
-   }
-   int indexmax(void)
-   {
-      return (shape->hslice_max);
-   }
-   int hslicemin(void)
-   {
-      return (shape->hslice_min);
-   }
-   int hslicemax(void)
-   {
-      return (shape->hslice_max);
-   }
    int slicemin(void)
    {
       return ((*this) (hslicemin()).slicemin());
@@ -5059,12 +5182,6 @@ class d4_array
       return ((*this) (hslicemin(), slicemin(), rowmax()).indexmax());
    }
    // returns the number of rows
-  unsigned int hslicesize()
-  {
-    return static_cast<unsigned int>(
-      hslicemax() < hslicemin() ? 0 : hslicemax() - hslicemin() + 1);
-  }
-   // returns the number of rows
    int slicesize()
    {
       return (slicemax() - slicemin() + 1);
@@ -5079,22 +5196,22 @@ class d4_array
    {
       return (colmax() - colmin() + 1);
    }
-   int indexmin(void) const
-   {
-      return (shape->hslice_min);
-   }
-   int indexmax(void) const
-   {
-      return (shape->hslice_max);
-   }
-   int hslicemin(void) const
-   {
-      return (shape->hslice_min);
-   }
-   int hslicemax(void) const
-   {
-      return (shape->hslice_max);
-   }
+  int indexmin() const
+  {
+    return hslicemin();
+  }
+  int indexmax() const
+  {
+    return hslicemax();
+  }
+  int hslicemin() const
+  {
+    return shape ? shape->hslice_min : 1;
+  }
+  int hslicemax() const
+  {
+    return shape ? shape->hslice_max : 0;
+  }
    int slicemin(void) const
    {
       return ((*this) (hslicemin()).slicemin());
@@ -5132,9 +5249,9 @@ class d4_array
   // returns the number of rows
   unsigned int hslicesize() const
   {
-    return static_cast<unsigned int>(
-      hslicemax() < hslicemin() ? 0 : hslicemax() - hslicemin() + 1);
+    return static_cast<unsigned int>(hslicemax() - hslicemin() + 1);
   }
+
    // returns the number of rows
    int slicesize() const
    {
@@ -5150,8 +5267,9 @@ class d4_array
    {
       return (colmax() - colmin() + 1);
    }
-   void initialize(void);
    void operator /=(double d);
+  void initialize();
+  unsigned int get_ncopies() const { return shape ? shape->ncopies : 0; }
 };
 #ifdef OPT_LIB
 inline d3_array& d4_array::operator()(int i)
@@ -5343,22 +5461,7 @@ class dvar4_array
 #endif
    //access functions
    friend class four_array_shape;
-   int indexmin(void)
-   {
-      return (shape->hslice_min);
-   }
-   int indexmax(void)
-   {
-      return (shape->hslice_max);
-   }
-   int hslicemin(void)
-   {
-      return (shape->hslice_min);
-   }
-   int hslicemax(void)
-   {
-      return (shape->hslice_max);
-   }
+
    int slicemin(void)
    {
       return ((*this) (hslicemin()).slicemin());
@@ -5393,12 +5496,6 @@ class dvar4_array
    //int rowmin(void) { return(shape->row_min);}
    //int rowmax(void) { return(shape->row_max);}
 
-  // returns the number of rows
-  unsigned int hslicesize()
-  {
-    return static_cast<unsigned int>(
-      hslicemax() < hslicemin() ? 0 : hslicemax() - hslicemin() + 1);
-  }
    // returns the number of rows
    int slicesize()
    {
@@ -5414,22 +5511,12 @@ class dvar4_array
    {
       return (colmax() - colmin() + 1);
    }
-   int indexmin(void) const
-   {
-      return (shape->hslice_min);
-   }
-   int indexmax(void) const
-   {
-      return (shape->hslice_max);
-   }
-   int hslicemin(void) const
-   {
-      return (shape->hslice_min);
-   }
-   int hslicemax(void) const
-   {
-      return (shape->hslice_max);
-   }
+
+  int indexmin() const { return hslicemin(); }
+  int indexmax() const { return hslicemax(); }
+  int hslicemin() const { return shape ? shape->hslice_min : 1; }
+  int hslicemax() const { return shape ? shape->hslice_max : 0; }
+
    int slicemin(void) const
    {
       return ((*this) (hslicemin()).slicemin());
@@ -5466,9 +5553,9 @@ class dvar4_array
   // returns the number of rows
   unsigned int hslicesize() const
   {
-    return static_cast<unsigned int>(
-      hslicemax() < hslicemin() ? 0 : hslicemax() - hslicemin() + 1);
+    return static_cast<unsigned int>(hslicemax() - hslicemin() + 1);
   }
+
    // returns the number of rows
    int slicesize() const
    {
@@ -5487,6 +5574,8 @@ class dvar4_array
    void initialize(void);
    void operator/=(const prevariable & d);
    void operator/=(const double &d);
+
+  unsigned int get_ncopies() const { return shape ? shape->ncopies : 0; }
 };
 
 dvar4_array operator/(const d4_array & m, const prevariable & d);
@@ -5615,94 +5704,37 @@ class i4_array
      int nrl, const imatrix & nrh, int ncl, int nch);
    i4_array();
    ~i4_array();
-   i3_array & elem(int i)
-   {
-      return t[i];
-   }
-   imatrix & elem(int i, int j)
-   {
-      return ((*this) (i)) (j);
-   }
-   ivector & elem(int i, int j, int k)
-   {
-      return (((*this) (i, j)) (k));
-   }
-   int &elem(int i, int j, int k, int l)
-   {
-      return (((*this) (i, j, k)) (l));
-   }
-#ifdef OPT_LIB
-   i3_array & operator ()(int i)
-   {
-      return t[i];
-   }
-   i3_array & operator [](int i)
-   {
-      return t[i];
-   }
-   imatrix & operator ()(int i, int j)
-   {
-      return ((*this) (i)) (j);
-   }
-   ivector & operator ()(int i, int j, int k)
-   {
-      return (((*this) (i, j)) (k));
-   }
-   int &operator () (int i, int j, int k, int l)
-   {
-      return (((*this) (i, j, k)) (l));
-   }
-   inline const i3_array & operator() (int i) const
-   {
-      return t[i];
-   }
-   inline const i3_array & operator[] (int i) const
-   {
-      return t[i];
-   }
-   inline const imatrix & operator() (int i, int j) const
-   {
-      return ((*this) (i)) (j);
-   }
-   inline const ivector & operator() (int i, int j, int k) const
-   {
-      return (((*this) (i, j)) (k));
-   }
-   inline const int &operator() (int i, int j, int k, int l) const
-   {
-      return (((*this) (i, j, k)) (l));
-   }
-#else
-   const i3_array & operator() (int i) const;
-   const i3_array & operator[] (int i) const;
-   const imatrix & operator() (int i, int j) const;
-   const ivector & operator() (int i, int j, int k) const;
-   const int &operator() (int i, int j, int k, int l) const;
-   i3_array & operator ()(int);
-   i3_array & operator [](int);
-   imatrix & operator ()(int, int);
-   ivector & operator ()(int, int, int);
-   int &operator () (int, int, int, int);
-#endif
+
+  i3_array& elem(int i);
+  const i3_array& elem(int i) const;
+
+  imatrix& elem(int i, int j)
+  {
+    return elem(i)(j);
+  }
+  ivector& elem(int i, int j, int k)
+  {
+    return elem(i)(j, k);
+  }
+  int& elem(int i, int j, int k, int l)
+  {
+    return elem(i)(j, k, l);
+  }
+
+  i3_array& operator()(int i);
+  i3_array& operator[](int j);
+  imatrix& operator()(int i, int j);
+  ivector& operator()(int i, int j, int k);
+  int& operator()(int i, int j, int k, int l);
+  const i3_array& operator()(int i) const;
+  const i3_array& operator[](int i) const;
+  const imatrix& operator()(int i, int j) const;
+  const ivector& operator()(int i, int j, int k) const;
+  const int& operator()(int i, int j, int k, int l) const;
+
    //access functions
    friend class four_array_shape;
 
-   int hslicemin(void)
-   {
-      return (shape->indexmin());
-   }
-   int indexmin(void)
-   {
-      return (shape->indexmin());
-   }
-   int hslicemax(void)
-   {
-      return (shape->indexmax());
-   }
-   int indexmax(void)
-   {
-      return (shape->indexmax());
-   }
    int slicemin(void)
    {
       return ((*this) (hslicemin()).slicemin());
@@ -5752,22 +5784,22 @@ class i4_array
    {
       return (colmax() - colmin() + 1);
    }
-   int hslicemin(void) const
-   {
-      return (shape->indexmin());
-   }
-   int indexmin(void) const
-   {
-      return (shape->indexmin());
-   }
-   int indexmax(void) const
-   {
-      return (shape->indexmax());
-   }
-   int hslicemax(void) const
-   {
-      return (shape->indexmax());
-   }
+  int indexmin() const
+  {
+    return hslicemin();
+  }
+  int indexmax() const
+  {
+    return hslicemax();
+  }
+  int hslicemin() const
+  {
+    return shape ? shape->indexmin() : 1;
+  }
+  int hslicemax() const
+  {
+    return shape ? shape->indexmax() : 0;
+  }
    int slicemin(void) const
    {
       return ((*this) (hslicemin()).slicemin());
@@ -5792,11 +5824,10 @@ class i4_array
    {
       return ((*this) (hslicemin(), slicemin(), rowmax()).indexmax());
    }
-
-   int hslicesize() const
-   {
-      return (indexmax() - indexmin() + 1);
-   }
+  int hslicesize() const
+  {
+    return indexmax() - indexmin() + 1;
+  }
    int size() const
    {
       return (indexmax() - indexmin() + 1);
@@ -5816,14 +5847,112 @@ class i4_array
    {
       return (colmax() - colmin() + 1);
    }
-   void initialize(void);
+  void initialize();
+  unsigned int get_ncopies() const { return shape ? shape->ncopies : 0; }
 };
+inline i3_array& i4_array::elem(int i)
+{
+  if (i < indexmin() || i > indexmax())
+  {
+    cerr << "Index out of bounds in "
+         << "i4_array::elem(int).\n";
+    ad_exit(1);
+  }
+  return t[i];
+}
+inline const i3_array& i4_array::elem(int i) const
+{
+  if (i < indexmin() || i > indexmax())
+  {
+    cerr << "Index out of bounds in "
+         << "i4_array::elem(int).\n";
+    ad_exit(1);
+  }
+  return t[i];
+}
+inline i3_array& i4_array::operator()(int i)
+{
+#ifdef OPT_LIB
+  return t[i];
+#else
+  return elem(i);
+#endif
+}
+inline i3_array& i4_array::operator[](int i)
+{
+#ifdef OPT_LIB
+  return t[i];
+#else
+  return elem(i);
+#endif
+}
+inline imatrix& i4_array::operator()(int i, int j)
+{
+#ifdef OPT_LIB
+  return t[i](j);
+#else
+  return elem(i)(j);
+#endif
+}
+inline ivector& i4_array::operator()(int i, int j, int k)
+{
+#ifdef OPT_LIB
+  return t[i](j, k);
+#else
+  return elem(i)(j, k);
+#endif
+}
+inline int& i4_array::operator()(int i, int j, int k, int a)
+{
+#ifdef OPT_LIB
+  return t[i](j, k, a);
+#else
+  return elem(i)(j, k, a);
+#endif
+}
+inline const i3_array& i4_array::operator()(int i) const
+{
+#ifdef OPT_LIB
+  return t[i];
+#else
+  return elem(i);
+#endif
+}
+inline const i3_array& i4_array::operator[](int i) const
+{
+#ifdef OPT_LIB
+  return t[i];
+#else
+  return elem(i);
+#endif
+}
+inline const imatrix& i4_array::operator()(int i, int j) const
+{
+#ifdef OPT_LIB
+  return t[i](j);
+#else
+  return elem(i)(j);
+#endif
+}
+inline const ivector& i4_array::operator()(int i, int j, int k) const
+{
+#ifdef OPT_LIB
+  return t[i](j, k);
+#else
+  return elem(i)(j, k);
+#endif
+}
+inline const int& i4_array::operator()(int i, int j, int k, int a) const
+{
+#ifdef OPT_LIB
+  return t[i](j, k, a);
+#else
+  return elem(i)(j, k, a);
+#endif
+}
 
-
-#if defined(USE_HIGHER_ARRAYS)
-// ***************************************************************
-// ***************************************************************
-#  if defined(MFCL2_CONSTRUCTORS)
+ostream& operator<<(const ostream& output, const i4_array& iarray);
+istream& operator>>(const istream& input, const i4_array& iarray);
 
 /**
  * Description not yet available.
@@ -5844,7 +5973,7 @@ class i5_array
      const index_type & nrh, const index_type & ncl, const index_type & nch,
      const index_type & aa, const index_type & bb);
 
-   void shallow_copy(const i5_array &);
+   void shallow_copy(const i5_array&);
    void deallocate(void);
    void allocate(void);
    void allocate(const i5_array &);
@@ -5874,96 +6003,26 @@ class i5_array
      int nrl, const imatrix & nrh, int ncl, int nch);
    i5_array();
    ~i5_array();
-   //i4_array& elem(int i) { return t[i];}
-   //i3_array& elem (int i ,int j) {return ((*this)(i))(j);}
-   int iop(void);
-   //imatrix& elem(int i,int j,int k) {return (((*this)(i,j))(k));}
-   int xxx(void);
-   //ivector& elem(int i,int j,int k,int l)
-   int yyy(void);
-  //int& elem(int i,int j,int k,int l,int ll) {return( ((*this)(i,j,k))(l,ll));}
-#ifdef OPT_LIB
-   i4_array & operator () (int i)
-   {
-      return t[i];
-   }
-   i4_array & operator [] (int i)
-   {
-      return t[i];
-   }
-   i3_array & operator ()(int i, int j)
-   {
-      return ((*this) (i)) (j);
-   }
-   imatrix & operator ()(int i, int j, int k)
-   {
-      return (((*this) (i, j)) (k));
-   }
-   ivector & operator ()(int i, int j, int k, int l)
-   {
-      return (((*this) (i, j, k)) (l));
-   }
-   int &operator () (int i, int j, int k, int l, int ll)
-   {
-      return (((*this) (i, j, k)) (l, ll));
-   }
-   inline const i4_array & operator() (int i) const
-   {
-      return t[i];
-   }
-   inline const i4_array & operator[] (int i) const
-   {
-      return t[i];
-   }
-   inline const i3_array & operator() (int i, int j) const
-   {
-      return ((*this) (i)) (j);
-   }
-   inline const imatrix & operator() (int i, int j, int k) const
-   {
-      return (((*this) (i, j)) (k));
-   }
-   inline const ivector & operator() (int i, int j, int k, int l) const
-   {
-      return (((*this) (i, j, k)) (l));
-   }
-   inline const int &operator() (int i, int j, int k, int l, int ll) const
-   {
-      return (((*this) (i, j, k)) (l, ll));
-   }
-#else
-   const i4_array & operator() (int i) const;
-   const i4_array & operator[] (int i) const;
-   const i3_array & operator() (int i, int j) const;
-   const imatrix & operator() (int i, int j, int k) const;
-   const ivector & operator() (int i, int j, int k, int l) const;
-   const int &operator() (int i, int j, int k, int l, int ll) const;
-   i4_array & operator () (int);
-   i4_array & operator [] (int);
-   i3_array & operator () (int, int);
-   imatrix & operator () (int, int, int);
-   ivector & operator () (int, int, int, int);
-   int &operator () (int, int, int, int, int);
-#endif
+
+  i4_array& elem(int i);
+  const i4_array& elem(int i) const;
+
+  i4_array& operator[](int);
+  i4_array& operator()(int);
+  i3_array& operator()(int, int);
+  imatrix& operator()(int, int, int);
+  ivector& operator()(int, int, int, int);
+  int& operator()(int, int, int, int, int);
+  const i4_array& operator[](int) const;
+  const i4_array& operator()(int) const;
+  const i3_array& operator()(int, int) const;
+  const imatrix& operator()(int, int, int) const;
+  const ivector& operator()(int, int, int, int) const;
+  const int& operator()(int, int, int, int, int) const;
+
    //access functions
    friend class four_array_shape;
 
-   int hslicemin(void)
-   {
-      return (shape->indexmin());
-   }
-   int indexmin(void)
-   {
-      return (shape->indexmin());
-   }
-   int hslicemax(void)
-   {
-      return (shape->indexmax());
-   }
-   int indexmax(void)
-   {
-      return (shape->indexmax());
-   }
    int slicemin(void)
    {
       return ((*this) (hslicemin()).slicemin());
@@ -6014,22 +6073,22 @@ class i5_array
    {
       return (colmax() - colmin() + 1);
    }
-   int hslicemin(void) const
-   {
-      return (shape->indexmin());
-   }
-   int indexmin(void) const
-   {
-      return (shape->indexmin());
-   }
-   int indexmax(void) const
-   {
-      return (shape->indexmax());
-   }
-   int hslicemax(void) const
-   {
-      return (shape->indexmax());
-   }
+  int hslicemin() const
+  {
+    return shape ? shape->indexmin() : 1;
+  }
+  int hslicemax() const
+  {
+    return shape ? shape->indexmax() : 0;
+  }
+  int indexmin() const
+  {
+    return hslicemin();
+  }
+  int indexmax() const
+  {
+    return hslicemax();
+  }
    int slicemin(void) const
    {
       return ((*this) (hslicemin()).slicemin());
@@ -6054,11 +6113,10 @@ class i5_array
    {
       return ((*this) (hslicemin(), slicemin(), rowmax()).indexmax());
    }
-
-   int hslicesize() const
-   {
-      return (indexmax() - indexmin() + 1);
-   }
+  int hslicesize() const
+  {
+    return indexmax() - indexmin() + 1;
+  }
    int size() const
    {
       return (indexmax() - indexmin() + 1);
@@ -6078,15 +6136,84 @@ class i5_array
    {
       return (colmax() - colmin() + 1);
    }
-   void initialize(void);
+  void initialize();
+  unsigned int get_ncopies() const { return shape ? shape->ncopies : 0; }
 };
+inline i4_array& i5_array::elem(int i)
+{
+#ifndef OPT_LIB
+  if (i < indexmin() || i > indexmax())
+  {
+    cerr << "Index out of bounds in i5_array::elem(int).\n";
+    ad_exit(1);
+  }
+#endif
+  return t[i];
+}
+inline const i4_array& i5_array::elem(int i) const
+{
+#ifndef OPT_LIB
+  if (i < indexmin() || i > indexmax())
+  {
+    cerr << "Index out of bounds in i5_array::elem(int).\n";
+    ad_exit(1);
+  }
+#endif
+  return t[i];
+}
+#ifdef OPT_LIB
+inline i4_array& i5_array::operator()(int i)
+{
+  return t[i];
+}
+inline i4_array& i5_array::operator[](int i)
+{
+  return t[i];
+}
+inline i3_array& i5_array::operator()(int i, int j)
+{
+  return t[i](j);
+}
+inline imatrix& i5_array::operator()(int i, int j, int k)
+{
+  return t[i](j, k);
+}
+inline ivector& i5_array::operator()(int i, int j, int k, int l)
+{
+  return t[i](j, k, l);
+}
+inline int& i5_array::operator()(int i, int j, int k, int l, int m)
+{
+  return t[i](j, k, l, m);
+}
+inline const i4_array& i5_array::operator()(int i) const
+{
+  return t[i];
+}
+inline const i4_array& i5_array::operator[](int i) const
+{
+  return t[i];
+}
+inline const i3_array& i5_array::operator()(int i, int j) const
+{
+  return t[i](j);
+}
+inline const imatrix& i5_array::operator()(int i, int j, int k) const
+{
+  return t[i](j, k);
+}
+inline const ivector& i5_array::operator()(int i, int j, int k, int l) const
+{
+  return t[i](j, k, l);
+}
+inline const int& i5_array::operator()(int i, int j, int k, int l, int m) const
+{
+  return t[i](j, k, l, m);
+}
+#endif
 
-ostream & operator<<(const ostream & istr, const i5_array & z);
-istream & operator>>(const istream & istr, const i5_array & z);
-#endif //  if defined(MFCL2_CONSTRUCTORS)
-
-ostream & operator<<(const ostream & istr, const i4_array & z);
-istream & operator>>(const istream & istr, const i4_array & z);
+ostream& operator<<(const ostream& output, const i5_array& iarray);
+istream& operator>>(const istream& input, const i5_array& iarray);
 
 // ***************************************************************
 // ***************************************************************
@@ -6106,7 +6233,9 @@ class d5_array
      int nrl, int nrh, int ncl, int nch);
 
    void allocate(int imin, int imax);
-   void shallow_copy(const d5_array &);
+
+  void shallow_copy(const d5_array&);
+
    d5_array(int imin, int imax);
 
    d5_array(const ad_integer & hhsl, const ad_integer & hhsu,
@@ -6236,35 +6365,22 @@ class d5_array
    dvector & operator ()(int, int, int, int);
    double &operator () (int, int, int, int, int);
 #endif
-   //access functions
-   int indexmin()
-   {
-     return shape->indexmin();
-   }
-   int indexmax()
-   {
-     return shape->indexmax();
-   }
-   unsigned int size()
-   {
-     int ret = indexmax() - indexmin() + 1;
-     return static_cast<unsigned int>(ret < 0 ? 0 : ret);
-   }
-   int indexmin() const
-   {
-      return shape->indexmin();
-   }
-   int indexmax() const
-   {
-      return shape->indexmax();
-   }
-   unsigned int size() const
-   {
-     int ret = indexmax() - indexmin() + 1;
-     return static_cast<unsigned int>(ret < 0 ? 0 : ret);
-   }
-   void initialize(void);
-   void operator /=(double d);
+  //access functions
+  int indexmin() const
+  {
+    return shape ? shape->indexmin() : 1;
+  }
+  int indexmax() const
+  {
+    return shape ? shape->indexmax() : 0;
+  }
+  unsigned int size() const
+  {
+    return static_cast<unsigned int>(indexmax() - indexmin() + 1);
+  }
+  void initialize();
+  void operator/=(double d);
+  unsigned int get_ncopies() const { return shape ? shape->ncopies : 0; }
 };
 
 d5_array operator/(const d5_array & m, double d);
@@ -6275,14 +6391,19 @@ d5_array operator/(const d5_array & m, double d);
  */
 class dvar5_array
 {
-   vector_shape *shape;
-   dvar4_array *t;
- public:
-   void shallow_copy(const dvar5_array &);
-   dvar5_array(int hhsl, int hhsu);
-   dvar5_array sub(int hhsl, int hhsu);
-   dvar5_array(int hhsl, int hhsu, int hsl, int hsu, int sl, int sh,
+  vector_shape* shape;
+  dvar4_array* t;
+public:
+  dvar5_array();
+  dvar5_array(const d5_array& darray);
+  dvar5_array(const dvar5_array& other);
+  dvar5_array(int hhsl, int hhsu);
+  dvar5_array(int hhsl, int hhsu, int hsl, int hsu, int sl, int sh,
      int nrl, int nrh, int ncl, int nch);
+  ~dvar5_array();
+
+   dvar5_array sub(int hhsl, int hhsu);
+   void shallow_copy(const dvar5_array &);
    void allocate(int hhsl, int hhsu, int hsl, int hsu, int sl, int sh,
      int nrl, int nrh, int ncl, int nch);
 
@@ -6311,10 +6432,6 @@ class dvar5_array
 
    dvar5_array & operator=(const d5_array &);
    dvar5_array & operator=(const dvar5_array & m);
-   dvar5_array(const d5_array & m2);
-   dvar5_array(const dvar5_array & m2);
-   dvar5_array();
-   ~dvar5_array();
    dvar4_array & elem(int i)
    {
       return t[i];
@@ -6419,36 +6536,24 @@ class dvar5_array
    dvar_vector & operator ()(int, int, int, int);
    prevariable operator () (int, int, int, int, int);
 #endif
-   //access functions
-   int indexmin(void)
-   {
-      return (shape->indexmin());
-   }
-   int indexmax(void)
-   {
-      return (shape->indexmax());
-   }
-  unsigned int size()
+  //access functions
+  int indexmin() const
   {
-    return static_cast<unsigned int>(
-      indexmax() < indexmin() ? 0 : indexmax() - indexmin() + 1);
+    return shape ? shape->indexmin() : 1;
   }
-   int indexmin(void) const
-   {
-      return (shape->indexmin());
-   }
-   int indexmax(void) const
-   {
-      return (shape->indexmax());
-   }
+  int indexmax() const
+  {
+    return shape ? shape->indexmax() : 0;
+  }
   unsigned int size() const
   {
-    return static_cast<unsigned int>(
-      indexmax() < indexmin() ? 0 : indexmax() - indexmin() + 1);
+    return static_cast<unsigned int>(indexmax() - indexmin() + 1);
   }
-   void initialize(void);
-   void operator/=(const prevariable & d);
-   void operator/=(const double &d);
+  void initialize();
+  void operator/=(const prevariable& d);
+  void operator/=(const double& d);
+
+  unsigned int get_ncopies() const { return shape ? shape->ncopies : 0; }
 };
 
 dvar5_array operator/(const d5_array & m, const prevariable & d);
@@ -6463,12 +6568,13 @@ class d6_array
 {
    vector_shape *shape;
    d5_array *t;
- public:
-   void shallow_copy(const d6_array &);
+public:
+  void shallow_copy(const d6_array&);
    d6_array(int hhsl, int hhsu, int hsl, int hsu, int sl, int sh, int nrl,
      int nrh, int ncl, int nch, int l6, int u6);
    void allocate(int hhsl, int hhsu, int hsl, int hsu, int sl, int sh,
      int nrl, int nrh, int ncl, int nch, int l6, int u6);
+   void allocate(int hhsl, int hhsu);
 
    d6_array(const ad_integer & hhsl, const ad_integer & hhsu,
      const index_type & hsl, const index_type & hsu,
@@ -6497,158 +6603,148 @@ class d6_array
    d6_array(const d6_array & m2);
    d6_array();
    ~d6_array();
-   d5_array & elem(int i)
-   {
-      return t[i];
-   }
-   d4_array & elem(int i, int j)
-   {
-      return ((*this) (i)) (j);
-   }
-   d3_array & elem(int i, int j, int k)
-   {
-      return (((*this) (i, j)) (k));
-   }
-   dmatrix & elem(int i, int j, int k, int l)
-   {
-      return (((*this) (i, j, k)) (l));
-   }
-   dvector & elem(int i, int j, int k, int l, int _m)
-   {
-      return (((*this) (i)) (j, k, l, _m));
-   }
-   double &elem(int i, int j, int k, int l, int _m, int _n)
-   {
-      return (((*this) (i)) (j, k, l, _m, _n));
-   }
-   const d5_array & elem(int i) const
-   {
-      return t[i];
-   }
-   const d4_array & elem(int i, int j) const
-   {
-      return ((*this) (i)) (j);
-   }
-   const d3_array & elem(int i, int j, int k) const
-   {
-      return (((*this) (i, j)) (k));
-   }
-   const dmatrix & elem(int i, int j, int k, int l) const
-   {
-      return (((*this) (i, j, k)) (l));
-   }
-   const dvector & elem(int i, int j, int k, int l, int _m) const
-   {
-      return (((*this) (i)) (j, k, l, _m));
-   }
-   const double &elem(int i, int j, int k, int l, int _m, int _n) const
-   {
-      return (((*this) (i)) (j, k, l, _m, _n));
-   }
-#ifdef OPT_LIB
-   d5_array & operator () (int i)
-   {
-      return t[i];
-   }
-   d5_array & operator [](int i)
-   {
-      return t[i];
-   }
-   d4_array & operator ()(int i, int j)
-   {
-      return ((*this) (i)) (j);
-   }
-   d3_array & operator ()(int i, int j, int k)
-   {
-      return (((*this) (i, j)) (k));
-   }
-   dmatrix & operator ()(int i, int j, int k, int l)
-   {
-      return (((*this) (i)) (j, k, l));
-   }
-   dvector & operator ()(int i, int j, int k, int l, int _m)
-   {
-      return (((*this) (i)) (j, k, l, _m));
-   }
-   double &operator () (int i, int j, int k, int l, int _m, int _n)
-   {
-      return (((*this) (i)) (j, k, l, _m, _n));
-   }
-   inline const d5_array & operator() (int i) const
-   {
-      return t[i];
-   }
-   inline const d5_array & operator[] (int i) const
-   {
-      return t[i];
-   }
-   inline const d4_array & operator() (int i, int j) const
-   {
-      return ((*this) (i)) (j);
-   }
-   inline const d3_array & operator() (int i, int j, int k) const
-   {
-      return (((*this) (i)) (j, k));
-   }
-   inline const dmatrix & operator() (int i, int j, int k, int l) const
-   {
-      return (((*this) (i)) (j, k, l));
-   }
-   inline const dvector & operator() (int i, int j, int k, int l, int _m) const
-   {
-      return (((*this) (i)) (j, k, l, _m));
-   }
-   inline const double &operator() (int i, int j, int k, int l, int _m, int _n)
+  d5_array& elem(int i);
+  d4_array& elem(int i, int j)
+  {
+    return elem(i)(j);
+  }
+  d3_array& elem(int i, int j, int k)
+  {
+    return elem(i)(j, k);
+  }
+  dmatrix& elem(int i, int j, int k, int l)
+  {
+    return elem(i)(j, k, l);
+  }
+  dvector& elem(int i, int j, int k, int l, int _m)
+  {
+    return elem(i)(j, k, l, _m);
+  }
+  double &elem(int i, int j, int k, int l, int _m, int _n)
+  {
+     return elem(i)(j, k, l, _m, _n);
+  }
+  const d5_array& elem(int i) const;
+  const d4_array& elem(int i, int j) const
+  {
+    return elem(i)(j);
+  }
+  const d3_array& elem(int i, int j, int k) const
+  {
+    return elem(i)(j, k);
+  }
+  const dmatrix& elem(int i, int j, int k, int l) const
+  {
+    return elem(i)(j, k, l);
+  }
+  const dvector& elem(int i, int j, int k, int l, int _m) const
+  {
+    return elem(i)(j, k, l, _m);
+  }
+  const double& elem(int i, int j, int k, int l, int _m, int _n) const
+  {
+    return elem(i)(j, k, l, _m, _n);
+  }
+  d5_array& operator()(int i)
+  {
+    return elem(i);
+  }
+  d5_array& operator[](int i)
+  {
+    return elem(i);
+  }
+  d4_array& operator()(int i, int j)
+  {
+    return elem(i)(j);
+  }
+  d3_array& operator ()(int i, int j, int k)
+  {
+    return elem(i)(j, k);
+  }
+  dmatrix& operator ()(int i, int j, int k, int l)
+  {
+    return elem(i)(j, k, l);
+  }
+  dvector& operator ()(int i, int j, int k, int l, int _m)
+  {
+    return elem(i)(j, k, l, _m);
+  }
+  double& operator()(int i, int j, int k, int l, int _m, int _n)
+  {
+    return elem(i)(j, k, l, _m, _n);
+  }
+  inline const d5_array& operator()(int i) const
+  {
+    return elem(i);
+  }
+  inline const d5_array& operator[](int i) const
+  {
+    return elem(i);
+  }
+  inline const d4_array& operator()(int i, int j) const
+  {
+    return elem(i)(j);
+  }
+  inline const d3_array& operator()(int i, int j, int k) const
+  {
+    return elem(i)(j, k);
+  }
+  inline const dmatrix& operator()(int i, int j, int k, int l) const
+  {
+    return elem(i)(j, k, l);
+  }
+  inline const dvector& operator()(int i, int j, int k, int l, int _m) const
+  {
+    return elem(i)(j, k, l, _m);
+  }
+  inline const double& operator()(int i, int j, int k, int l, int _m, int _n)
      const
-   {
-      return (((*this) (i)) (j, k, l, _m, _n));
-   }
-#else
-   const d5_array & operator() (int i) const;
-   const d5_array & operator[] (int i) const;
-   const d4_array & operator() (int i, int j) const;
-   const d3_array & operator() (int i, int j, int k) const;
-   const dmatrix & operator() (int i, int j, int k, int l) const;
-   const dvector & operator() (int i, int j, int k, int l, int _m) const;
-   const double &operator() (int i, int j, int k, int l, int _m, int _n) const;
-   d5_array & operator ()(int);
-   d5_array & operator [](int);
-   d4_array & operator ()(int, int);
-   d3_array & operator ()(int, int, int);
-   dmatrix & operator ()(int, int, int, int);
-   dvector & operator ()(int, int, int, int, int);
-   double &operator () (int, int, int, int, int, int);
-#endif
-   //access functions
-   int indexmin()
-   {
-     return (shape->indexmin());
-   }
-   int indexmax()
-   {
-     return (shape->indexmax());
-   }
-   unsigned int size()
-   {
-     int ret = indexmax() - indexmin() + 1;
-     return static_cast<unsigned int>(ret < 0 ? 0 : ret);
-   }
-   int indexmin() const
-   {
-     return (shape->indexmin());
-   }
-   int indexmax() const
-   {
-     return (shape->indexmax());
-   }
-   unsigned int size() const
-   {
-     int ret = indexmax() - indexmin() + 1;
-     return static_cast<unsigned int>(ret < 0 ? 0 : ret);
-   }
-   void initialize(void);
-   void operator /=(double d);
+  {
+    return elem(i)(j, k, l, _m, _n);
+  }
+  //access functions
+  int indexmin() const
+  {
+    return shape ? shape->indexmin() : 1;
+  }
+  int indexmax() const
+  {
+    return shape ? shape->indexmax() : 0;
+  }
+  unsigned int size() const
+  {
+    return static_cast<unsigned int>(indexmax() - indexmin() + 1);
+  }
+  void initialize();
+  void operator/=(double d);
+  unsigned int get_ncopies() const { return shape ? shape->ncopies : 0; }
 };
+inline d5_array& d6_array::elem(int i)
+{
+#ifndef OPT_LIB
+  if (i < indexmin() || i > indexmax())
+  {
+    cerr << "Error: Index is out of bounds in"
+         << " d5_array& d6_array::elem(int).\n";
+    ad_exit(1);
+  }
+#endif
+
+  return t[i];
+}
+inline const d5_array& d6_array::elem(int i) const
+{
+#ifndef OPT_LIB
+  if (i < indexmin() || i > indexmax())
+  {
+    cerr << "Error: Index is out of bounds in"
+         << " d5_array& d6_array::elem(int).\n";
+    ad_exit(1);
+  }
+#endif
+
+  return t[i];
+}
 
 d6_array operator/(const d6_array & m, double d);
 
@@ -6822,36 +6918,23 @@ class dvar6_array
    dvar_vector & operator ()(int, int, int, int, int);
    prevariable operator () (int, int, int, int, int, int);
 #endif
-   //access functions
-   int indexmin(void)
-   {
-      return (shape->indexmin());
-   }
-   int indexmax(void)
-   {
-      return (shape->indexmax());
-   }
-  unsigned int size()
+  //access functions
+  int indexmin() const
   {
-    return static_cast<unsigned int>(
-      indexmax() < indexmin() ? 0 : indexmax() - indexmin() + 1);
+    return shape ? shape->indexmin() : 1;
   }
-   int indexmin(void) const
-   {
-      return (shape->indexmin());
-   }
-   int indexmax(void) const
-   {
-      return (shape->indexmax());
-   }
+  int indexmax() const
+  {
+    return shape ? shape->indexmax() : 0;
+  }
   unsigned int size() const
   {
-    return static_cast<unsigned int>(
-      indexmax() < indexmin() ? 0 : indexmax() - indexmin() + 1);
+    return static_cast<unsigned int>(indexmax() - indexmin() + 1);
   }
-   void initialize(void);
-   void operator/=(const prevariable & d);
-   void operator/=(const double &d);
+  void initialize();
+  void operator/=(const prevariable& d);
+  void operator/=(const double& d);
+  unsigned int get_ncopies() const { return shape ? shape->ncopies : 0; }
 };
 
 dvar6_array operator/(const d6_array & m, const prevariable & d);
@@ -6898,183 +6981,171 @@ class d7_array
       return (shape == NULL);
    }
 
+  d7_array();
+  d7_array(const d7_array&);
+  ~d7_array();
+
    d7_array & operator=(const d7_array &);
-   d7_array(d7_array & m2);
-   d7_array();
-   ~d7_array();
-   d6_array & elem(int i)
-   {
-      return t[i];
-   }
-   d5_array & elem(int i, int j)
-   {
-      return ((*this) (i)) (j);
-   }
-   d4_array & elem(int i, int j, int k)
-   {
-      return (((*this) (i, j)) (k));
-   }
-   d3_array & elem(int i, int j, int k, int l)
-   {
-      return (((*this) (i, j, k)) (l));
-   }
-   dmatrix & elem(int i, int j, int k, int l, int _m)
-   {
-      return (((*this) (i)) (j, k, l, _m));
-   }
-   dvector & elem(int i, int j, int k, int l, int _m, int _n)
-   {
-      return (((*this) (i)) (j, k, l, _m, _n));
-   }
-   double &elem(int i, int j, int k, int l, int _m, int _n, int _p)
-   {
-      return (((*this) (i)) (j, k, l, _m, _n, _p));
-   }
-   const d6_array & elem(int i) const
-   {
-      return t[i];
-   }
-   const d5_array & elem(int i, int j) const
-   {
-      return ((*this) (i)) (j);
-   }
-   const d4_array & elem(int i, int j, int k) const
-   {
-      return (((*this) (i, j)) (k));
-   }
-   const d3_array & elem(int i, int j, int k, int l) const
-   {
-      return (((*this) (i, j, k)) (l));
-   }
-   const dmatrix & elem(int i, int j, int k, int l, int _m) const
-   {
-      return (((*this) (i)) (j, k, l, _m));
-   }
-   const dvector & elem(int i, int j, int k, int l, int _m, int _n) const
-   {
-      return (((*this) (i)) (j, k, l, _m, _n));
-   }
-   const double &elem(int i, int j, int k, int l, int _m, int _n, int _p) const
-   {
-      return (((*this) (i)) (j, k, l, _m, _n, _p));
-   }
-#ifdef OPT_LIB
-   d6_array & operator () (int i)
-   {
-      return t[i];
-   }
-   d6_array & operator [](int i)
-   {
-      return t[i];
-   }
-   d5_array & operator ()(int i, int j)
-   {
-      return ((*this) (i)) (j);
-   }
-   d4_array & operator ()(int i, int j, int k)
-   {
-      return (((*this) (i, j)) (k));
-   }
-   d3_array & operator ()(int i, int j, int k, int l)
-   {
-      return (((*this) (i)) (j, k, l));
-   }
-   dmatrix & operator ()(int i, int j, int k, int l, int _m)
-   {
-      return (((*this) (i)) (j, k, l, _m));
-   }
-   dvector & operator ()(int i, int j, int k, int l, int _m, int _n)
-   {
-      return (((*this) (i)) (j, k, l, _m, _n));
-   }
-   double &operator () (int i, int j, int k, int l, int _m, int _n, int _p)
-   {
-      return (((*this) (i)) (j, k, l, _m, _n, _p));
-   }
-   inline const d6_array & operator() (int i) const
-   {
-      return t[i];
-   }
-   inline const d6_array & operator[] (int i) const
-   {
-      return t[i];
-   }
-   inline const d5_array & operator() (int i, int j) const
-   {
-      return ((*this) (i)) (j);
-   }
-   inline const d4_array & operator() (int i, int j, int k) const
-   {
-      return (((*this) (i)) (j, k));
-   }
-   inline const d3_array & operator() (int i, int j, int k, int l) const
-   {
-      return (((*this) (i)) (j, k, l));
-   }
-   inline const dmatrix & operator() (int i, int j, int k, int l, int _m) const
-   {
-      return (((*this) (i)) (j, k, l, _m));
-   }
-   inline const dvector & operator() (int i, int j, int k, int l, int _m,
+
+  d6_array& elem(int i);
+  d5_array& elem(int i, int j)
+  {
+    return elem(i)(j);
+  }
+  d4_array& elem(int i, int j, int k)
+  {
+    return elem(i)(j, k);
+  }
+  d3_array& elem(int i, int j, int k, int l)
+  {
+    return elem(i)(j, k, l);
+  }
+  dmatrix& elem(int i, int j, int k, int l, int _m)
+  {
+    return elem(i)(j, k, l, _m);
+  }
+  dvector& elem(int i, int j, int k, int l, int _m, int _n)
+  {
+    return elem(i)(j, k, l, _m, _n);
+  }
+  double& elem(int i, int j, int k, int l, int _m, int _n, int _p)
+  {
+    return elem(i)(j, k, l, _m, _n, _p);
+  }
+  const d6_array& elem(int i) const;
+  const d5_array& elem(int i, int j) const
+  {
+    return elem(i)(j);
+  }
+  const d4_array& elem(int i, int j, int k) const
+  {
+    return elem(i)(j, k);
+  }
+  const d3_array& elem(int i, int j, int k, int l) const
+  {
+    return elem(i)(j, k, l);
+  }
+  const dmatrix& elem(int i, int j, int k, int l, int _m) const
+  {
+    return elem(i)(j, k, l, _m);
+  }
+  const dvector& elem(int i, int j, int k, int l, int _m, int _n) const
+  {
+    return elem(i)(j, k, l, _m, _n);
+  }
+  const double& elem(int i, int j, int k, int l, int _m, int _n, int _p) const
+  {
+    return elem(i)(j, k, l, _m, _n, _p);
+  }
+  d6_array& operator()(int i)
+  {
+    return elem(i);
+  }
+  d6_array& operator[](int i)
+  {
+    return elem(i);
+  }
+  d5_array& operator()(int i, int j)
+  {
+    return elem(i)(j);
+  }
+  d4_array& operator()(int i, int j, int k)
+  {
+    return elem(i, j)(k);
+  }
+  d3_array& operator ()(int i, int j, int k, int l)
+  {
+    return elem(i)(j, k, l);
+  }
+  dmatrix& operator()(int i, int j, int k, int l, int _m)
+  {
+    return elem(i)(j, k, l, _m);
+  }
+  dvector & operator ()(int i, int j, int k, int l, int _m, int _n)
+  {
+    return elem(i)(j, k, l, _m, _n);
+  }
+  double& operator()(int i, int j, int k, int l, int _m, int _n, int _p)
+  {
+    return elem(i)(j, k, l, _m, _n, _p);
+  }
+  inline const d6_array& operator()(int i) const
+  {
+    return elem(i);
+  }
+  inline const d6_array& operator[](int i) const
+  {
+    return elem(i);
+  }
+  inline const d5_array& operator()(int i, int j) const
+  {
+    return elem(i)(j);
+  }
+  inline const d4_array& operator()(int i, int j, int k) const
+  {
+    return elem(i)(j, k);
+  }
+  inline const d3_array & operator() (int i, int j, int k, int l) const
+  {
+    return elem(i)(j, k, l);
+  }
+  inline const dmatrix& operator()(int i, int j, int k, int l, int _m) const
+  {
+    return elem(i)(j, k, l, _m);
+  }
+  inline const dvector& operator()(int i, int j, int k, int l, int _m,
      int _n) const
-   {
-      return (((*this) (i)) (j, k, l, _m, _n));
-   }
-   inline const double &operator() (int i, int j, int k, int l, int _m, int _n,
+  {
+    return elem(i)(j, k, l, _m, _n);
+  }
+  inline const double& operator()(int i, int j, int k, int l, int _m, int _n,
      int _p) const
-   {
-      return (((*this) (i)) (j, k, l, _m, _n, _p));
-   }
-#else
-   const d6_array & operator() (int i) const;
-   const d6_array & operator[] (int i) const;
-   const d5_array & operator() (int i, int j) const;
-   const d4_array & operator() (int i, int j, int k) const;
-   const d3_array & operator() (int i, int j, int k, int l) const;
-   const dmatrix & operator() (int i, int j, int k, int l, int _m) const;
-   const dvector & operator() (int i, int j, int k, int l, int _m, int _n)
-     const;
-   const double &operator() (int i, int j, int k, int l, int _m, int _n, int _p)
-     const;
-   d6_array & operator ()(int);
-   d6_array & operator [](int);
-   d5_array & operator ()(int, int);
-   d4_array & operator ()(int, int, int);
-   d3_array & operator ()(int, int, int, int);
-   dmatrix & operator ()(int, int, int, int, int);
-   dvector & operator ()(int, int, int, int, int, int);
-   double &operator () (int, int, int, int, int, int, int);
-#endif
+  {
+    return elem(i)(j, k, l, _m, _n, _p);
+  }
+
    //access functions
-   int indexmin()
-   {
-     return shape->indexmin();
-   }
-   int indexmax()
-   {
-     return shape->indexmax();
-   }
-   unsigned int size()
-   {
-     int ret = indexmax() - indexmin() + 1;
-     return static_cast<unsigned int>(ret < 0 ? 0 : ret);
-   }
-   int indexmin() const
-   {
-     return shape->indexmin();
-   }
-   int indexmax() const
-   {
-     return shape->indexmax();
-   }
-   unsigned int size() const
-   {
-     int ret = indexmax() - indexmin() + 1;
-     return static_cast<unsigned int>(ret < 0 ? 0 : ret);
-   }
-   void initialize();
-   void operator /=(double d);
+  int indexmin() const
+  {
+    return shape ? shape->indexmin() : 1;
+  }
+  int indexmax() const
+  {
+    return shape ? shape->indexmax() : 0;
+  }
+  unsigned int size() const
+  {
+    return static_cast<unsigned int>(indexmax() - indexmin() + 1);
+  }
+  void initialize();
+  void operator/=(double d);
+  void shallow_copy(const d7_array&);
+  unsigned int get_ncopies() const { return shape ? shape->ncopies : 0; }
 };
+inline d6_array& d7_array::elem(int i)
+{
+#ifndef OPT_LIB
+  if (i < indexmin() || i > indexmax())
+  {
+    cerr << "Error index out of bounds in\n"
+            "d5_array& d6_array::elem(int)" << endl;
+    ad_exit(1);
+  }
+#endif
+  return t[i];
+}
+inline const d6_array& d7_array::elem(int i) const
+{
+#ifndef OPT_LIB
+  if (i < indexmin() || i > indexmax())
+  {
+    cerr << "Error index out of bounds in\n"
+            "d5_array& d6_array::elem(int)" << endl;
+    ad_exit(1);
+  }
+#endif
+  return t[i];
+}
 
 d7_array operator/(const d7_array & m, double d);
 
@@ -7124,6 +7195,7 @@ class dvar7_array
    dvar7_array(dvar7_array & m2);
    dvar7_array();
    ~dvar7_array();
+   void shallow_copy(const dvar7_array&);
    dvar6_array & elem(int i)
    {
       return t[i];
@@ -7270,43 +7342,27 @@ class dvar7_array
    prevariable operator () (int, int, int, int, int, int, int);
 #endif
   //access functions
-  int indexmin()
-  {
-    return shape->indexmin();
-  }
-  int indexmax()
-  {
-    return shape->indexmax();
-  }
-  unsigned int size()
-  {
-    int ret = indexmax() - indexmin() + 1;
-    return static_cast<unsigned int>(ret < 0 ? 0 : ret);
-  }
   int indexmin() const
   {
-    return shape->indexmin();
+    return shape ? shape->indexmin() : 1;
   }
   int indexmax() const
   {
-    return shape->indexmax();
+    return shape ? shape->indexmax() : 0;
   }
   unsigned int size() const
   {
-    int ret = indexmax() - indexmin() + 1;
-    return static_cast<unsigned int>(ret < 0 ? 0 : ret);
+    return static_cast<unsigned int>(indexmax() - indexmin() + 1);
   }
-   void initialize(void);
-   void operator/=(const prevariable & d);
-   void operator/=(const double &d);
+  void initialize();
+  void operator/=(const prevariable& d);
+  void operator/=(const double& d);
+  unsigned int get_ncopies() const { return shape ? shape->ncopies : 0; }
 };
 
 dvar7_array operator/(const d7_array & m, const prevariable & d);
 dvar7_array operator/(const dvar7_array & m, double d);
 dvar7_array operator/(const dvar7_array & m, const prevariable & d);
-
-
-#endif // #if defined(USE_HIGHER_ARRAYS)
 
 class lmatrix;
 
@@ -7865,19 +7921,19 @@ class banded_symmetric_dmatrix
    void save_dmatrix_derivatives(const dvar_matrix_position &) const;
 
 #if defined(OPT_LIB)
-   inline double &operator () (register int i, register int j)
+   inline double& operator()(int i, int j)
    {
       return (*((d.m[i - j]).v + i));
    }
-   inline dvector operator () (register int i)
+   inline dvector operator()(int i)
    {
       return (d.m[i]);
    }
-   inline const double &operator() (register int i, register int j) const
+   inline const double& operator()(int i, int j) const
    {
       return (*((d.m[i - j]).v + i));
    }
-   inline const dvector operator() (register int i) const
+   inline const dvector operator()(int i) const
    {
       return (d.m[i]);
    }
@@ -7995,19 +8051,19 @@ class banded_lower_triangular_dmatrix
       restore_banded_lower_triangular_dvar_matrix_value(
         const dvar_matrix_position& mpos);
 #if defined(OPT_LIB)
-   inline double &operator () (register int i, register int j)
+   inline double& operator()(int i, int j)
    {
       return (*((d.m[i - j]).v + i));
    }
-   inline dvector operator () (register int i)
+   inline dvector operator()(int i)
    {
       return (d.m[i]);
    }
-   inline const double &operator() (register int i, register int j) const
+   inline const double& operator()(int i, int j) const
    {
       return (*((d.m[i - j]).v + i));
    }
-   inline const dvector operator() (register int i) const
+   inline const dvector operator()(int i) const
    {
       return (d.m[i]);
    }
@@ -8059,19 +8115,19 @@ class banded_lower_triangular_dvar_matrix
       (const banded_lower_triangular_dvar_matrix &);
 
 #if defined(OPT_LIB)
-   inline prevariable operator () (register int i, register int j)
+   inline prevariable operator()(int i, int j)
    {
       return ((d.m[i - j]).va + i);
    }
-   inline dvar_vector operator () (register int i)
+   inline dvar_vector operator()(int i)
    {
       return (d.m[i]);
    }
-   inline const prevariable operator() (register int i, register int j) const
+   inline const prevariable operator()(int i, int j) const
    {
       return ((d.m[i - j]).va + i);
    }
-   inline const dvar_vector operator() (register int i) const
+   inline const dvar_vector operator()(int i) const
    {
       return (d.m[i]);
    }
@@ -8081,11 +8137,11 @@ class banded_lower_triangular_dvar_matrix
    const prevariable operator() (int i, int j) const;
    const dvar_vector operator() (int i) const;
 #endif
-   inline double &elem_value(register int i, register int j)
+   inline double& elem_value(int i, int j)
    {
       return *(double *) ((d.m[i - j]).va + i);
    }
-   inline const double &elem_value(register int i, register int j) const
+   inline const double& elem_value(int i, int j) const
    {
       return *(double *) ((d.m[i - j]).va + i);
    }
@@ -8252,6 +8308,7 @@ int allocated(const i4_array & v);
 int allocated(const d4_array & v);
 int allocated(const dvar4_array & v);
 
+int allocated(const i5_array& iarr5);
 int allocated(const d5_array & v);
 int allocated(const dvar5_array & v);
 
@@ -8598,20 +8655,21 @@ void tracing_message(int traceflag, const char *s, int *pn);
 void tracing_message(int traceflag, const char *s, double *pd);
 void tracing_message(int traceflag, const char *s, double d);
 
-int sub_unallocated(const dvar_vector & m);
-int sub_unallocated(const dvar_matrix & m);
-int sub_unallocated(const dvar3_array & m);
-int sub_unallocated(const dvar4_array & m);
-int sub_unallocated(const dvar5_array & m);
-int sub_unallocated(const dvector & m);
-int sub_unallocated(const dmatrix & m);
-int sub_unallocated(const d3_array & m);
-int sub_unallocated(const d4_array & m);
-int sub_unallocated(const d5_array & m);
-int sub_unallocated(const ivector & m);
-int sub_unallocated(const imatrix & m);
-int sub_unallocated(const i3_array & m);
-int sub_unallocated(const i4_array & m);
+int sub_unallocated(const dvar_vector&);
+int sub_unallocated(const dvar_matrix&);
+int sub_unallocated(const dvar3_array&);
+int sub_unallocated(const dvar4_array&);
+int sub_unallocated(const dvar5_array&);
+int sub_unallocated(const dvector&);
+int sub_unallocated(const dmatrix&);
+int sub_unallocated(const d3_array&);
+int sub_unallocated(const d4_array&);
+int sub_unallocated(const d5_array&);
+int sub_unallocated(const ivector&);
+int sub_unallocated(const imatrix&);
+int sub_unallocated(const i3_array&);
+int sub_unallocated(const i4_array&);
+int sub_unallocated(const i5_array&);
 
 void check_derivative_values(const char *s);
 void check_derivative_values(const char *s, int i);
@@ -8659,11 +8717,12 @@ class adtimer;
  */
 class ad_comm
 {
- protected:
-   ad_comm(int argc, char *argv[]);
-   ad_comm(void);
-   void allocate(void);
-   virtual ~ ad_comm();
+protected:
+  ad_comm();
+  ad_comm(int argc, char *argv[]);
+  virtual ~ad_comm();
+
+  void allocate();
  public:
    static int time_flag;
    static int bandwidth;

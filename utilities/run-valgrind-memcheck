@@ -1,3 +1,0 @@
-#!/bin/sh
-
-valgrind --tool=memcheck --track-origins=yes --leak-check=full $1

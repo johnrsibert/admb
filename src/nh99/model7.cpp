@@ -159,7 +159,7 @@ ad_comm::ad_comm(int _argc,char * _argv[])
       "filename to FILE\n");
       (*ad_printf)( " -est            only do the parameter estimation\n");
       (*ad_printf)( " -noest          do not do the parameter estimation "
-      "(optimization) \n");
+      "(optimization)\n");
       (*ad_printf)( " -ind FILE       change default input data filename to "
       "FILE\n");
       (*ad_printf)( " -lmn N          use limited memory quasi newton -- keep "
@@ -197,7 +197,9 @@ ad_comm::ad_comm(int _argc,char * _argv[])
       "simulation\n");
       (*ad_printf)( " -mceval         go through the saved mcmc values from a "
       "previous mcsave\n");
-      (*ad_printf)( " -mcu            use uniformaly distributed steps for "
+      (*ad_printf)( " -nuts           MCMC draws with the no-U-turn sampler\n");
+      (*ad_printf)( " -rwm            MCMC draws with a Metopolis sampler.\n");
+      (*ad_printf)( " -mcu            use uniformly distributed steps for "
       "mcmc instead of random normal\n");
       (*ad_printf)( " -crit N1,N2,... set gradient magnitude convergence "
       "criterion to N\n");

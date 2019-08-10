@@ -1,21 +1,13 @@
 ifeq ($(OS),Windows_NT)
-  ifeq ($(TERM),cygwin)
-  else
-  ifeq (sh.exe,$(findstring sh.exe,$(SHELL)))
-    SHELL = cmd
-    ifeq ($(SHELL),cmd)
-      MYPWD=$(shell cd)
-    else
-      MYPWD=$(shell cmd /C cd)
+  ifeq ($(strip $(TERM)),)
+    SHELL=cmd
+    ifeq ($(wildcard ..\utilities\mingw\bin\g++.exe),..\utilities\mingw\bin\g++.exe)
+      PATH:=$(shell cd)\..\utilities\mingw\bin;$(PATH)
     endif
-    PATH:=$(MYPWD)\..\utilities\mingw\bin;$(PATH);$(MYPWD)\..\utilities
   else
-    ifneq ($(TERM),xterm)
-      MYPWD=$(shell pwd)
-      PATH:=$(MYPWD)/../utilities/mingw/bin:$(PATH)
+    ifeq ($(wildcard ../utilities/mingw/bin/g++.exe),../utilities/mingw/bin/g++.exe)
+      PATH:=$(shell pwd)/../utilities/mingw/bin:$(PATH)
     endif
-    PATH:=$(PATH):$(MYPWD)/../utilities
-  endif
   endif
 endif
 
@@ -75,6 +67,7 @@ coverage: all-gtests
 	$(MAKE) tpl-testminmax
 	$(MAKE) tpl-orange_mvn
 	$(MAKE) tpl-lprof
+	$(MAKE) example-prof_like
 
 all-gtests:
 ifneq ($(USE_GTESTS),no)
@@ -117,7 +110,11 @@ all-tpls:\
   tpl-priors\
   tpl-testminmax\
   tpl-orange_mvn\
+  cpp-globals\
   tpl-lprof
+
+cpp-globals:
+	$(MAKE) --directory=globals
 
 tpl-f1b2vc5:
 	$(MAKE) --directory=f1b2vc5
@@ -220,30 +217,39 @@ ifneq ($(SHELL),cmd)
 	$(MAKE) --directory=lprof
 endif
 
+example-prof_like:
+	$(MAKE) --directory=../examples/admb/prof_like
+
 verify:
 ifeq ($(SHELL),cmd)
   ifneq ($(DEBUG),yes)
-	del ..\benchmarks-opt.txt
 	del ..\benchmarks-saf.txt
-	$(MAKE) DEBUG_OPTION=$(DEBUG_OPTION) FAST_OPTION=-f -C $(DIST)\examples --file=Makefile all
-	pushd ..\build\dist & ..\..\scripts\get-outputs.bat > "..\..\benchmarks-opt.txt" & popd
-	$(MAKE) DEBUG_OPTION=$(DEBUG_OPTION) -C $(DIST)\examples --file=Makefile all
+	$(MAKE) DEBUG_OPTION=$(DEBUG_OPTION) -C ..\examples --file=Makefile all
 	pushd ..\build\dist & ..\..\scripts\get-outputs.bat > "..\..\benchmarks-saf.txt" & popd
-  else
+    ifndef SAFE_ONLY
 	del ..\benchmarks-opt.txt
-	del ..\benchmarks-saf.txt
-	$(MAKE) DEBUG_OPTION=$(DEBUG_OPTION) FAST_OPTION=-f -C $(DIST)\examples --file=Makefile all
+	$(MAKE) DEBUG_OPTION=$(DEBUG_OPTION) FAST_OPTION=-f -C ..\examples --file=Makefile all
+	pushd ..\build\dist & ..\..\scripts\get-outputs.bat > "..\..\benchmarks-opt.txt" & popd
+    endif
+  else
+    ifndef SAFE_ONLY
+	del ..\benchmarks-opt.txt
+	$(MAKE) DEBUG_OPTION=$(DEBUG_OPTION) FAST_OPTION=-f -C ..\examples --file=Makefile all
 	pushd ..\build\debug & ..\..\scripts\get-outputs.bat > "..\..\benchmarks-opt.txt" & popd
-	$(MAKE) DEBUG_OPTION=$(DEBUG_OPTION) -C $(DIST)\examples --file=Makefile all
+    endif
+	del ..\benchmarks-saf.txt
+	$(MAKE) DEBUG_OPTION=$(DEBUG_OPTION) -C ..\examples --file=Makefile all
 	pushd ..\build\debug & ..\..\scripts\get-outputs.bat > "..\..\benchmarks-saf.txt" & popd
   endif
 else
-	rm -vf ../benchmarks-opt.txt
 	rm -vf ../benchmarks-saf.txt
-	$(MAKE) DEBUG_OPTION=$(DEBUG_OPTION) FAST_OPTION=-f -C $(DIST)/examples all
-	-../scripts/get-outputs.sh ${DIST}/examples/ > "../benchmarks-opt.txt"
-	$(MAKE) DEBUG_OPTION=$(DEBUG_OPTION) -C $(DIST)/examples all
-	-../scripts/get-outputs.sh ${DIST}/examples/ > "../benchmarks-saf.txt"
+	$(MAKE) DEBUG_OPTION=$(DEBUG_OPTION) -C ../examples all
+	-../scripts/get-outputs.sh ../examples/ > "../benchmarks-saf.txt"
+  ifndef SAFE_ONLY
+	rm -vf ../benchmarks-opt.txt
+	$(MAKE) DEBUG_OPTION=$(DEBUG_OPTION) FAST_OPTION=-f -C ../examples all
+	-../scripts/get-outputs.sh ../examples/ > "../benchmarks-opt.txt"
+  endif
 endif
 
 total-clean: clean
@@ -259,6 +265,7 @@ else
 	$(MAKE) --directory=lprof clean
 	@rm -rvf SS3
 endif
+	$(MAKE) --directory=globals clean
 	$(MAKE) --directory=f1b2vc5 clean
 	$(MAKE) --directory=expm clean
 	$(MAKE) --directory=beta_regression clean
@@ -292,6 +299,7 @@ endif
 	$(MAKE) --directory=orange_mvn clean
 	$(MAKE) --directory=gradients_output clean
 	$(MAKE) --directory=4darray clean
+	$(MAKE) --directory=../examples/admb/prof_like clean
 
 dist-clean:
 ifeq ($(SHELL),cmd)

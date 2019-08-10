@@ -1,55 +1,55 @@
-/*
- * $Id$
- *
+/**
  * Author: David Fournier
  * Copyright (c) 2008-2012 Regents of the University of California
- */
-/**
- * \file
- * Description not yet available.
  */
 #include "fvar.hpp"
 #include "admb_messages.h"
 
 /**
- * Description not yet available.
- * \param
- */
- d4_array::d4_array(int nrl,int nrh)
- {
-   allocate(nrl,nrh);
- }
+Construct vector with dimension [nrl to nrh]
+of empty d3_array.
 
-/**
- * Description not yet available.
- * \param
- */
-four_array_shape::four_array_shape(int hsl,int hsu) //,int sl,int su,int rl,
- // int ru,int cl,int cu)
+\param nrl lower vector index
+\param nrh upper vector index
+*/
+d4_array::d4_array(int nrl, int nrh)
 {
-  hslice_min=hsl;
-  hslice_max=hsu;
+  allocate(nrl, nrh);
+}
+/**
+Construct four_array_shape with initial values and
+setting min and max. 
+
+\param hsl used to set slice min
+\param hsu used to set slice max
+*/
+four_array_shape::four_array_shape(int hsl, int hsu):
+  ncopies(0),
+  hslice_min(hsl),
+  hslice_max(hsu)
+{
+  //,int sl,int su,int rl,
+  // int ru,int cl,int cu)
   //slice_min=sl;
   //slice_max=su;
   //row_min=rl;
   //row_max=ru;
   //col_min=cl;
   //col_max=cu;
-  ncopies=0;
 }
-
 /**
- * Description not yet available.
- * \param
- */
-double sum(const d4_array& m)
+Return the sum total of all the elements in darray.
+
+\param array d4_array
+*/
+double sum(const d4_array& darray)
 {
-  double tmp=0.;
-  for (int i=m.indexmin();i<=m.indexmax();i++)
+  double total = 0.0;
+  for (int i = darray.indexmin(); i <= darray.indexmax(); ++i)
   {
-    tmp+=sum(m.elem(i));
+    total += sum(darray.elem(i));
   }
-  return tmp;
+  return total;
 }
 
 /**
@@ -72,123 +72,94 @@ double sum(const d4_array& m)
      return *this;
    }
  }
-
+/// Copy constructor (shallow)
+d4_array::d4_array(const d4_array& other)
+{
+  shallow_copy(other);
+}
 /**
- * Description not yet available.
- * \param
- */
- d4_array::d4_array(const d4_array& m2)
- {
-   if (m2.shape)
-   {
-     shape=m2.shape;
-     (shape->ncopies)++;
-     t = m2.t;
-   }
-   else
-   {
-     shape=NULL;
-     t=NULL;
-   }
- }
+Copies pointer locations from other to d4_array.
 
-/**
- * Description not yet available.
- * \param
- */
- void d4_array::shallow_copy(const d4_array& m2)
- {
-   if (m2.shape)
-   {
-     shape=m2.shape;
-     (shape->ncopies)++;
-     t = m2.t;
-   }
-   else
-   {
-     shape=NULL;
-     t=NULL;
-   }
- }
-
-/**
- * Description not yet available.
- * \param
- */
- void d4_array::deallocate()
- {
-   if (shape)
-   {
-     if (shape->ncopies)
-     {
-       (shape->ncopies)--;
-     }
-     else
-     {
-       t += hslicemin();
-       delete [] t;
-       delete shape;
-     }
-   }
-#if defined(SAFE_ALL)
-   else
-   {
-     cerr << "Warning -- trying to deallocate an unallocated d4_array"<<endl;
-   }
-#endif
- }
-
-/**
-Destructor
+\param other d4_array
 */
+void d4_array::shallow_copy(const d4_array& other)
+{
+  if (other.shape)
+  {
+    shape = other.shape;
+    ++(shape->ncopies);
+    t = other.t;
+  }
+  else
+  {
+#ifdef DEBUG
+    cerr << "Warning -- Unable to shallow copy an unallocated d4_array.\n";
+#endif
+    allocate();
+  }
+}
+/// Deallocates d4_array memory.
+void d4_array::deallocate()
+{
+  if (shape)
+  {
+    if (shape->ncopies > 0)
+    {
+      --(shape->ncopies);
+    }
+    else
+    {
+      t += indexmin();
+      delete [] t;
+      delete shape;
+    }
+    allocate();
+  }
+#if defined(DEBUG)
+  else
+  {
+    cerr << "Warning -- Unable to deallocate an unallocated d4_array.\n";
+    ad_exit(1);
+  }
+#endif
+}
+/// Destructor
 d4_array::~d4_array()
 {
   deallocate();
 }
-
 /**
- * Description not yet available.
- * \param
- */
-d4_array& d4_array::operator=(const d4_array& m)
- {
-   int mmin=hslicemin();
-   int mmax=hslicemax();
-   if (mmin!=m.hslicemin() || mmax!=m.hslicemax())
-   {
-     cerr << "Incompatible bounds in"
-      " d4_array& d4_array:: operator =  (const d4_array& m)"
-      << endl;
-     ad_exit(1);
-    }
-   for (int i=mmin; i<=mmax; i++)
-   {
-     (*this)(i)=m(i);
-   }
-   return *this;
- }
+Assigns element values from other to d4_array.
 
-/**
-Allocate d4_array with same dimensions as m1.
+\param other d4_array
 */
-void d4_array::allocate(const d4_array& m1)
+d4_array& d4_array::operator=(const d4_array& other)
 {
-  if ((shape = new four_array_shape(m1.hslicemin(),m1.hslicemax())) == 0)
+  int min = hslicemin();
+  int max = hslicemax();
+  if (min != other.hslicemin() || max != other.hslicemax())
   {
-    cerr << " Error: d4_array unable to allocate memory in "
-         << __FILE__ << ':' << __LINE__ << '\n';
+    cerr << "Incompatible bounds in"
+         << " d4_array& d4_array::operator=(const d4_array&).\n";
     ad_exit(1);
   }
-  if ( (t = new d3_array[hslicesize()]) == 0)
+  for (int i = min; i <= max; ++i)
   {
-    cerr << " Error: d4_array unable to allocate memory in "
-         << __FILE__ << ':' << __LINE__ << '\n';
-    ad_exit(1);
+    elem(i) = other.elem(i);
   }
-  t -= hslicemin();
+  return *this;
+}
+/**
+Allocate d4_array with same dimensions as other.
+
+\param other d4_array
+*/
+void d4_array::allocate(const d4_array& other)
+{
+  allocate(other.hslicemin(), other.hslicemax());
   for (int i = hslicemin(); i <= hslicemax(); ++i)
   {
-    t[i].allocate(m1[i]);
+    elem(i).allocate(other.elem(i));
   }
 }
 
@@ -791,13 +762,16 @@ Allocate vector of empty i3_array with dimension
 \param hsl lower vector index
 \param hsu upper vector index
 */
-void d4_array::allocate(ad_integer hsl,ad_integer hsu)
+void d4_array::allocate(ad_integer hsl, ad_integer hsu)
 {
-  unsigned int ss =
-    static_cast<unsigned int>(hsu < hsl ? 0 : hsu - hsl + 1);
-  if (ss > 0)
+  if (hsl > hsu)
   {
-    if ((t = new d3_array[ss]) == 0)
+    allocate();
+  }
+  else
+  {
+    unsigned int size = static_cast<unsigned int>(hsu - hsl + 1);
+    if ((t = new d3_array[size]) == 0)
     {
       cerr << " Error: d4_array unable to allocate memory in "
            << __FILE__ << ':' << __LINE__ << '\n';
@@ -809,14 +783,10 @@ void d4_array::allocate(ad_integer hsl,ad_integer hsu)
            << __FILE__ << ':' << __LINE__ << '\n';
       ad_exit(1);
     }
-    t -= int(hsl);
+    t -= static_cast<int>(hsl);
     for (int i = hsl; i <= hsu; ++i)
     {
-      (*this)(i).allocate();
+      elem(i).allocate();
     }
-  }
-  else
-  {
-    allocate();
   }
 }

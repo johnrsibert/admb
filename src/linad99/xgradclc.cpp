@@ -1,6 +1,4 @@
 /*
- * $Id$
- *
  * Author: David Fournier
  * Copyright (c) 2008-2012 Regents of the University of California
  */
@@ -30,11 +28,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 
-#ifdef _MSC_VER
-  #define LSEEK _lseek
-  #define  read _read
-  #define write _write
-#else
+#ifndef _MSC_VER
   #include <iostream>
   using namespace std;
   #include <sys/stat.h>
@@ -105,7 +99,7 @@ void funnel_gradcalc(void)
   if(gradient_structure::GRAD_STACK1->ptr
        <= gradient_structure::GRAD_STACK1->ptr_first)
   {
-#ifdef SAFE_ALL
+#ifdef DEBUG
       cerr <<
         "warning -- calling funnel_gradcalc when no calculations generating"
            << endl << "derivative information have occurred" << endl;

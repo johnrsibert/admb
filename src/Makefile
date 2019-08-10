@@ -7,13 +7,13 @@ LEXDESTDIR=..\build\lex
 !IF DEFINED(DEBUG)
 DESTDIR=..\build\debug
 OBJDESTDIR=..\build\objects\debug
-CXXFLAGS_SAF=/nologo /W4 /wd4100 /wd4239 /GF /EHsc$(SAFE_ALL) /analyze:stacksize 50024  /D_CRT_SECURE_NO_WARNINGS /D_CRT_NONSTDC_NO_DEPRECATE /I$(DESTDIR)\include
-CXXFLAGS_OPT=/nologo /W4 /wd4100 /wd4239 /GF /EHsc /analyze:stacksize 50024 /DOPT_LIB /D_CRT_SECURE_NO_WARNINGS /D_CRT_NONSTDC_NO_DEPRECATE /I$(DESTDIR)\include
+CXXFLAGS_SAF=/nologo /W4 /wd6001 /wd4100 /wd4239 /GF /EHsc$(SAFE_ALL) /analyze:stacksize 50024 /D_USE_MATH_DEFINES /D_CRT_SECURE_NO_WARNINGS /D_CRT_NONSTDC_NO_DEPRECATE /I$(DESTDIR)\include
+CXXFLAGS_OPT=/nologo /W4 /wd6001 /wd4100 /wd4239 /GF /EHsc /analyze:stacksize 50024 /D_USE_MATH_DEFINES /DOPT_LIB /D_CRT_SECURE_NO_WARNINGS /D_CRT_NONSTDC_NO_DEPRECATE /I$(DESTDIR)\include
 !ELSE
 DESTDIR=..\build\dist
 OBJDESTDIR=..\build\objects\dist
-CXXFLAGS_SAF=/nologo /O2 /W4 /wd4100 /wd4239 /GF /EHsc$(SAFE_ALL) /D_CRT_SECURE_NO_WARNINGS /D_CRT_NONSTDC_NO_DEPRECATE /I$(DESTDIR)\include
-CXXFLAGS_OPT=/nologo /O2 /W4 /wd4100 /wd4239 /GF /EHsc /DOPT_LIB /D_CRT_SECURE_NO_WARNINGS /D_CRT_NONSTDC_NO_DEPRECATE /I$(DESTDIR)\include
+CXXFLAGS_SAF=/nologo /O2 /W4 /wd6001 /wd4100 /wd4239 /GF /EHsc$(SAFE_ALL) /D_USE_MATH_DEFINES /D_CRT_SECURE_NO_WARNINGS /D_CRT_NONSTDC_NO_DEPRECATE /I$(DESTDIR)\include
+CXXFLAGS_OPT=/nologo /O2 /W4 /wd6001 /wd4100 /wd4239 /GF /EHsc /DOPT_LIB /D_USE_MATH_DEFINES /D_CRT_SECURE_NO_WARNINGS /D_CRT_NONSTDC_NO_DEPRECATE /I$(DESTDIR)\include
 !ENDIF
 
 !INCLUDE df1b2-separable\objects.lst
@@ -29,6 +29,11 @@ SAFLP_DF1B2_SEPARABLE_OBJS=$(OBJ0: = ..\build\objects\dist\saflp-df1b2-separable
 !IF DEFINED(DEBUG)
 OPTLP_LINAD99_OBJS=$(OBJ1: = ..\build\objects\debug\optlp-linad99-) $(OBJ2: = ..\build\objects\debug\optlp-linad99-) $(OBJ3: = ..\build\objects\debug\optlp-linad99-) $(OBJ4: = ..\build\objects\debug\optlp-linad99-)
 SAFLP_LINAD99_OBJS=$(OBJ1: = ..\build\objects\debug\saflp-linad99-) $(OBJ2: = ..\build\objects\debug\saflp-linad99-) $(OBJ3: = ..\build\objects\debug\saflp-linad99-) $(OBJ4: = ..\build\objects\debug\saflp-linad99-) $(OBJ16: = ..\build\objects\debug\saflp-linad99-)
+!IF DEFINED(TRAVIS)
+SAFLP_LINAD99_OBJS1=$(OBJ1: = ..\build\objects\debug\saflp-linad99-)
+SAFLP_LINAD99_OBJS3=$(OBJ3: = ..\build\objects\debug\saflp-linad99-)
+SAFLP_LINAD99_OBJS2=$(OBJ2: = ..\build\objects\debug\saflp-linad99-) $(OBJ4: = ..\build\objects\debug\saflp-linad99-) $(OBJ16: = ..\build\objects\debug\saflp-linad99-)
+!ENDIF
 !ELSE
 OPTLP_LINAD99_OBJS=$(OBJ1: = ..\build\objects\dist\optlp-linad99-) $(OBJ2: = ..\build\objects\dist\optlp-linad99-) $(OBJ3: = ..\build\objects\dist\optlp-linad99-) $(OBJ4: = ..\build\objects\dist\optlp-linad99-)
 SAFLP_LINAD99_OBJS=$(OBJ1: = ..\build\objects\dist\saflp-linad99-) $(OBJ2: = ..\build\objects\dist\saflp-linad99-) $(OBJ3: = ..\build\objects\dist\saflp-linad99-) $(OBJ4: = ..\build\objects\dist\saflp-linad99-) $(OBJ16: = ..\build\objects\dist\saflp-linad99-)
@@ -45,7 +50,6 @@ SAFLP_NH99_OBJS=$(OBJ6: = ..\build\objects\dist\saflp-nh99-)
 
 !INCLUDE tools99\objects.lst
 !IF DEFINED(DEBUG)
-OPTLP_NH99_OBJS=$(OBJ6: = ..\build\objects\debug\optlp-nh99-)
 OPTLP_TOOLS99_OBJS=$(OBJ7: = ..\build\objects\debug\optlp-tools99-)
 SAFLP_TOOLS99_OBJS=$(OBJ7: = ..\build\objects\debug\saflp-tools99-)
 !ELSE
@@ -54,10 +58,7 @@ SAFLP_TOOLS99_OBJS=$(OBJ7: = ..\build\objects\dist\saflp-tools99-)
 !ENDIF
 
 all: dist
-	$(MAKE) copy
 	@rem pushd $(DESTDIR) & cscript ..\..\scripts\create-admb-shortcut.vbs & popd
-	@echo ADMB build completed.
-	@echo Check README.txt for usage and installation information.
 
 shared: all
 	IF EXIST $(DESTDIR)\lib\admb.dll del $(DESTDIR)\lib\admb.dll
@@ -73,8 +74,6 @@ dist: bins
 	copy ..\README.txt $(DESTDIR)
 	copy ..\VERSION $(DESTDIR)
 	$(MAKE) lexfiles
-	IF NOT EXIST $(DESTDIR) md $(DESTDIR)\utilities
-	IF NOT EXIST $(DESTDIR)\utilities xcopy /I /E /Y ..\utilities $(DESTDIR)\utilities
 
 bins: libs
 	IF NOT EXIST $(DESTDIR)\bin md $(DESTDIR)\bin
@@ -121,7 +120,25 @@ libs: objects
 	IF EXIST $(DESTDIR)\lib\admbo.lib del $(DESTDIR)\lib\admbo.lib
 	pushd $(OBJDESTDIR) & lib /OUT:..\..\$(DESTDIR)\lib\admbo.lib /NOLOGO /IGNORE:4006 optlp-df1b2-separable*.obj optlp-linad99*.obj optlp-nh99*.obj optlp-tools99*.obj optlp-sparse*.obj
 
+!IF DEFINED(SAFE_ONLY)
+objects: includes $(SAFLP_DF1B2_SEPARABLE_OBJS) $(SAFLP_LINAD99_OBJS) $(SAFLP_NH99_OBJS) $(SAFLP_TOOLS99_OBJS) $(OBJDESTDIR)\saflp-sparse-hs_sparse.obj
+!ELSE
 objects: includes $(OPTLP_DF1B2_SEPARABLE_OBJS) $(SAFLP_DF1B2_SEPARABLE_OBJS) $(OPTLP_LINAD99_OBJS) $(SAFLP_LINAD99_OBJS) $(OPTLP_NH99_OBJS) $(SAFLP_NH99_OBJS) $(OPTLP_TOOLS99_OBJS) $(SAFLP_TOOLS99_OBJS) $(OBJDESTDIR)\optlp-sparse-hs_sparse.obj $(OBJDESTDIR)\saflp-sparse-hs_sparse.obj
+!ENDIF
+!IF DEFINED(DEBUG)
+!IF DEFINED(TRAVIS)
+objects1: includes $(SAFLP_LINAD99_OBJS1)
+objects3: includes $(SAFLP_LINAD99_OBJS3)
+objects2: includes $(SAFLP_DF1B2_SEPARABLE_OBJS) $(SAFLP_LINAD99_OBJS2) $(SAFLP_NH99_OBJS) $(SAFLP_TOOLS99_OBJS) $(OBJDESTDIR)\saflp-sparse-hs_sparse.obj
+
+$(SAFLP_LINAD99_OBJS1):: $(@B:saflp-linad99-=linad99\).cpp
+	$(CXX) /c $(CXXFLAGS_SAF) /Fo$@ $?
+$(SAFLP_LINAD99_OBJS2):: $(@B:saflp-linad99-=linad99\).cpp
+	$(CXX) /c $(CXXFLAGS_SAF) /Fo$@ $?
+$(SAFLP_LINAD99_OBJS3):: $(@B:saflp-linad99-=linad99\).cpp
+	$(CXX) /c $(CXXFLAGS_SAF) /Fo$@ $?
+!ENDIF
+!ENDIF
 
 $(SAFLP_DF1B2_SEPARABLE_OBJS):: $(@B:saflp-df1b2-separable-=df1b2-separable\).cpp
 	$(CXX) /c $(CXXFLAGS_SAF) /Fo$@ $?
@@ -189,7 +206,6 @@ includes: objdestdir
 	copy tools99\integrate_wrap.hpp $(DESTDIR)\include
 	copy tools99\adjson.h $(DESTDIR)\include
 	if not exist $(DESTDIR)\include\contrib md $(DESTDIR)\include\contrib
-	copy nh99\nocontrib.h $(DESTDIR)\include\contrib\contrib.h
 
 objdestdir:
 	IF NOT EXIST $(OBJDESTDIR) md $(OBJDESTDIR)
@@ -208,8 +224,11 @@ copy:
 	IF NOT EXIST $(DESTDIR)\tests xcopy /I /E /Y ..\tests $(DESTDIR)\tests
 	IF NOT EXIST $(DESTDIR) md $(DESTDIR)\src
 	IF NOT EXIST $(DESTDIR)\src xcopy /I /E /Y ..\src $(DESTDIR)\src
+	IF NOT EXIST $(DESTDIR) md $(DESTDIR)\utilities
+	IF NOT EXIST $(DESTDIR)\utilities xcopy /I /E /Y ..\src $(DESTDIR)\utilities
 	pushd ..\contrib & $(MAKE) copy
 	pushd ..\tests & $(MAKE) copy
+	copy ..\Makefile $(DESTDIR)
 
 clean:
 	if exist ..\benchmarks-opt.txt del ..\benchmarks-opt.txt

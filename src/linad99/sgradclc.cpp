@@ -40,7 +40,6 @@
   #else
   typedef int ssize_t;
   #endif
-  #define LSEEK _lseek
   #define  read _read
   #define write _write
 #else
@@ -106,7 +105,7 @@ void gradcalc(int nvar, const dvector& _g)
     return;
   }
 
-  if (g.size() < nvar)
+  if (g.size() < static_cast<unsigned int>(nvar))
   {
     cerr  << "gradient vector size is less than the number of variables.\n";
     ad_exit(1);
@@ -122,7 +121,7 @@ void gradcalc(int nvar, const dvector& _g)
   if (gradient_structure::GRAD_STACK1->ptr <=
         gradient_structure::GRAD_STACK1->ptr_first)
   {
-#ifdef SAFE_ALL
+#ifdef DEBUG
     cerr << "warning -- calling gradcalc when no calculations generating"
          << endl << "derivative information have occurred" << endl;
 #endif
@@ -140,21 +139,8 @@ void gradcalc(int nvar, const dvector& _g)
 
   gradient_structure::GRAD_LIST->initialize();
 
-  double_and_int* tmp =
-    (double_and_int*)gradient_structure::ARRAY_MEMBLOCK_BASE;
-
-  unsigned long int max_last_offset =
-    gradient_structure::ARR_LIST1->get_max_last_offset();
-  size_t size = sizeof(double_and_int);
-  for (unsigned int i = 0; i < (max_last_offset/size); i++)
-  {
-     tmp->x = 0;
-#if defined (__ZTC__)
-     tmp = (double_and_int*)_farptr_norm((void*)(++tmp));
-#else
-     tmp++;
-#endif
-  }
+  memset(gradient_structure::ARRAY_MEMBLOCK_BASE, 0,
+    gradient_structure::ARR_LIST1->get_max_last_offset());
 
   *gradient_structure::GRAD_STACK1->ptr->dep_addr = 1;
 
@@ -202,13 +188,9 @@ void gradcalc(int nvar, const dvector& _g)
 #endif
   }
 
-#ifndef OPT_LIB
-  assert(g.indexmin() > 0);
-#endif
-  int mindx = g.indexmin();
-  for (int i=0; i < nvar; i++)
+  for (int i=0, j=g.indexmin(); i < nvar; ++i, ++j)
   {
-    g[i + mindx] = *gradient_structure::INDVAR_LIST->get_address(i);
+    g[j] = *gradient_structure::INDVAR_LIST->get_address(i);
   }
 
   gradient_structure::GRAD_STACK1->ptr =
@@ -227,13 +209,13 @@ Compute the gradient from the data stored in the global \ref gradient_structure.
 \param _g Vector from 1 to nvar. On return contains the gradient.
 \param f objective function
 \returns likelihood value
-*/
 double gradcalc(int nvar, const dvector& _g, dvariable& f)
 {
   double v = value(f);
   gradcalc(nvar, _g);
   return v;
 }
+*/
 /**
  */
 void gradient_structure::save_arrays()

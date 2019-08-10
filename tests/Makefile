@@ -4,7 +4,10 @@ all:\
   test-agemat\
   test-cov_re\
   test-expm\
-  test-geolocation
+  test-gtests
+
+test-gtests:
+	pushd gtests& $(MAKE) all & popd
 
 test-agemat:
 	pushd agemat& $(MAKE) & popd
@@ -24,6 +27,7 @@ total-clean: clean
 	pushd agemat & $(MAKE) total-clean & popd
 
 clean:
+	pushd gtests& $(MAKE) clean & popd
 	pushd agemat& $(MAKE) clean & popd
 	pushd cov_re & $(MAKE) clean & popd
 	pushd expm & $(MAKE) clean & popd
@@ -37,8 +41,10 @@ verify:
 	xcopy ..\examples ..\build\dist\examples  /S /Y /D
 	pushd ..\build\dist\examples & $(MAKE) all
 	pushd ..\build\dist & ..\..\scripts\get-outputs.bat > "..\..\benchmarks-saf.txt" & popd
+!IFNDEF SAFE_ONLY
 	pushd ..\build\dist\examples & $(MAKE) FAST_OPTION=-f all
 	pushd ..\build\dist & ..\..\scripts\get-outputs.bat > "..\..\benchmarks-opt.txt" & popd
+!ENDIF
 
 copy:
 	IF NOT EXIST $(DESTDIR)\tests xcopy /I /E /Y ..\tests $(DESTDIR)\tests

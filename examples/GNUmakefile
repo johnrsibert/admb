@@ -28,18 +28,7 @@ PROG=time
 endif
 endif
 
-default: simple
-
-ifdef PROG_VALGRIND
-all: simple caest
-else
-all: admb admb-re
-ifneq ($(TERM),cygwin)
-	cd autodif && $(MAKE)
-endif
-endif
-
-admb:\
+ADMB_TPLS=\
  buscycle\
  catage\
  chem_eng\
@@ -51,56 +40,7 @@ admb:\
  simple\
  vol
 
-buscycle:
-	$(MAKE) ham4 
-	$(MAKE) ham5
-ham4:
-	cd admb/buscycle && $(ADMB_HOME)/admb$(EXT) $(OPTIONS) $@ && $(PROG) ./$@ -version && $(PROG) ./$@
-
-ham5:
-	cd admb/buscycle && $(ADMB_HOME)/admb$(EXT) $(OPTIONS) $@ && $(PROG) ./$@
-
-catage:
-	cd admb/$@ && $(ADMB_HOME)/admb$(EXT) $(OPTIONS) $@ && $(PROG) ./$@
-
-chem_eng:
-	cd admb/$@ && $(ADMB_HOME)/admb$(EXT) $(OPTIONS) $@ && $(PROG) ./$@
-
-finance:
-	cd admb/$@ && $(ADMB_HOME)/admb$(EXT) $(OPTIONS) $@ && $(PROG) ./$@
-
-forest:
-ifneq ($(CXX),CC)
-	cd admb/$@ && $(ADMB_HOME)/admb$(EXT) $(OPTIONS) $@ && $(PROG) ./$@
-endif
-
-pella_t:
-	cd admb/$@ && $(ADMB_HOME)/admb$(EXT) $(OPTIONS) $@ && $(PROG) ./$@
-
-robreg:
-	$(MAKE) vonb
-	$(MAKE) vonbr
-vonb:
-	cd admb/robreg && $(ADMB_HOME)/admb$(EXT) $(OPTIONS) $@ && $(PROG) ./$@
-
-vonbr:
-	cd admb/robreg && $(ADMB_HOME)/admb$(EXT) $(OPTIONS) $@ && $(PROG) ./$@
-
-simple:
-	cd admb/$@ && $(ADMB_HOME)/admb$(EXT) $(OPTIONS) $@ && $(PROG) ./$@
-
-truncreg:
-	cd admb/$@ && $(ADMB_HOME)/admb$(EXT) $(OPTIONS) $@ && $(PROG) ./$@ -ams 2000000 && $(PROG) ./$@ -ams 2000000 -gbs 6000000 -cbs 4000000
-
-vol: n2mvol
-n2mvol:
-ifndef TRAVIS
-  ifeq ($(PROG),time)
-	cd admb/vol && $(ADMB_HOME)/admb$(EXT) $(OPTIONS) $@ && $(PROG) ./$@
-  endif
-endif
-
-admb-re:\
+ADMB_RE_TPLS=\
  bcb\
  biglog\
  bvprobit\
@@ -124,34 +64,93 @@ admb-re:\
  union\
  weights
 
+default: simple
+
+all: admb admb-re
+ifneq ($(TERM),cygwin)
+	cd autodif && $(MAKE)
+endif
+
+ifdef TRAVIS
+admb: $(filter-out buscycle vol, $(ADMB_TPLS))
+else
+admb: $(ADMB_TPLS)
+endif
+
+buscycle:
+	$(MAKE) ham4 
+	$(MAKE) ham5
+ham4:
+	cd admb/buscycle && $(ADMB_HOME)/admb$(EXT) $(OPTIONS) $@ && $(PROG) ./$@
+
+ham5:
+	cd admb/buscycle && $(ADMB_HOME)/admb$(EXT) $(OPTIONS) $@ && $(PROG) ./$@
+
+catage:
+	cd admb/$@ && $(ADMB_HOME)/admb$(EXT) $(OPTIONS) $@ && $(PROG) ./$@
+
+chem_eng:
+	cd admb/$@ && $(ADMB_HOME)/admb$(EXT) $(OPTIONS) $@ && $(PROG) ./$@
+
+finance:
+	cd admb/$@ && $(ADMB_HOME)/admb$(EXT) $(OPTIONS) $@ && $(PROG) ./$@
+
+forest:
+	cd admb/$@ && $(ADMB_HOME)/admb$(EXT) $(OPTIONS) $@ && $(PROG) ./$@
+
+pella_t:
+ifneq ($(OS),Windows_NT)
+	cd admb/$@ && $(ADMB_HOME)/admb$(EXT) $(OPTIONS) $@ && $(PROG) ./$@
+endif
+
+robreg:
+	$(MAKE) vonb
+	$(MAKE) vonbr
+vonb:
+	cd admb/robreg && $(ADMB_HOME)/admb$(EXT) $(OPTIONS) $@ && $(PROG) ./$@
+
+vonbr:
+	cd admb/robreg && $(ADMB_HOME)/admb$(EXT) $(OPTIONS) $@ && $(PROG) ./$@
+
+simple-version:
+	cd admb/ && $(ADMB_HOME)/admb$(EXT) $(OPTIONS) $@ && $(PROG) ./$@ -version
+
+simple:
+	cd admb/$@ && $(ADMB_HOME)/admb$(EXT) $(OPTIONS) $@ && $(PROG) ./$@
+
+truncreg:
+	cd admb/$@ && $(ADMB_HOME)/admb$(EXT) $(OPTIONS) $@ && $(PROG) ./$@ -ams 2000000 && $(PROG) ./$@ -ams 2000000 -gbs 6000000 -cbs 4000000
+
+vol: n2mvol
+n2mvol:
+	cd admb/vol && $(ADMB_HOME)/admb$(EXT) $(OPTIONS) $@ && $(PROG) ./$@
+
+ifdef TRAVIS
+ifeq ($(PROG),../../../scripts/ci/run-valgrind-memcheck)
+admb-re: $(filter-out biglog glmmadmb caest nbmm logistic nested4 sdv skewed socatt spatial union weights, $(ADMB_RE_TPLS))
+else
+admb-re: $(filter-out biglog glmmadmb caest nbmm nested4 sdv skewed socatt spatial, $(ADMB_RE_TPLS))
+endif
+else
+admb-re: $(ADMB_RE_TPLS)
+endif
+
 bcb:
 	cd admb-re/$@ && $(ADMB_HOME)/admb$(EXT)  $(OPTIONS) $@ && $(PROG) ./$@
 
 biglog:
-ifndef TRAVIS
-  ifeq ($(PROG),time)
 	cd admb-re/$@ && $(ADMB_HOME)/admb$(EXT)  $(OPTIONS) $@ && $(PROG) ./$@
-  endif
-endif
 
 bvprobit:
 	@#Do not catch for admb-9.x
 	cd admb-re/glmmadmb && $(ADMB_HOME)/admb$(EXT) $(OPTIONS) $@ && $(PROG) ./$@
 
 glmmadmb:
-ifndef TRAVIS
-  ifeq ($(PROG),time)
 	@#Do not catch for admb-9.x
 	cd admb-re/$@ && $(ADMB_HOME)/admb$(EXT) $(OPTIONS) $@ && $(PROG) ./$@ -maxph 5 -noinit -shess -crit 1.e-6
-  endif
-endif
 
 caest:
-ifndef TRAVIS
-  ifeq ($(PROG),time)
 	cd admb-re/$@ && $(ADMB_HOME)/admb$(EXT) $(OPTIONS) $@ && $(PROG) ./$@
-  endif
-endif
 
 gamma:
 	cd admb-re/$@ && $(ADMB_HOME)/admb$(EXT) $(OPTIONS) liver_$@ && $(PROG) ./liver_$@
@@ -178,12 +177,7 @@ orange2:
 	cd admb-re/$@ && $(ADMB_HOME)/admb$(EXT) $(OPTIONS) $@ && $(PROG) ./$@
 
 orange_cor:
-ifndef TRAVIS
-  ifeq ($(PROG),time)
 	cd admb-re/$@ && $(ADMB_HOME)/admb$(EXT) $(OPTIONS) $@ && $(PROG) ./$@
-  endif
-endif
-
 pheno:
 	cd admb-re/$@ && $(ADMB_HOME)/admb$(EXT) $(OPTIONS) $@ && $(PROG) ./$@
 
@@ -191,11 +185,7 @@ polio:
 	cd admb-re/$@ && $(ADMB_HOME)/admb$(EXT) $(OPTIONS) $@ && $(PROG) ./$@
 
 sdv:
-ifndef TRAVIS
-  ifeq ($(PROG),time)
 	cd admb-re/$@ && $(ADMB_HOME)/admb$(EXT) $(OPTIONS) $@ && $(PROG) ./$@
-  endif
-endif
 
 skewed:
 	$(MAKE) diet
@@ -213,9 +203,7 @@ spatial:
 	cd admb-re/$@ && $(ADMB_HOME)/admb$(EXT) $(OPTIONS) $@ && $(PROG) ./$@
 
 union:
-ifeq ($(PROG),time)
 	cd admb-re/$@ && $(ADMB_HOME)/admb$(EXT) $(OPTIONS) $@ && $(PROG) ./$@
-endif
 
 weights: binomial
 binomial:

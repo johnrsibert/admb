@@ -1,7 +1,7 @@
 ADMB Project
 ============
-*ADMB-11.6*  
-*Released December 20, 2016*  
+*ADMB-12.0*  
+*Released December 21, 2017*  
 
 ---
 
@@ -24,8 +24,6 @@ Donations
 ADMB is freely available for download. If you would like to contribute or donate funds,
 please contact <users@admb-project.org>.
 
-Cool ADMB T-shirts are also available for purchase.
-
 ADMB Citation
 -------------
 Fournier, D.A., Skaug, H.J., Ancheta, J., Ianelli, J., Magnusson, A., Maunder, M.N.,
@@ -40,10 +38,12 @@ The abstract and publication can be freely [downloaded][publisher_link] from the
 Documentation
 -------------
 Read release notes for changes and features in [CHANGES][CHANGES_link].
-[CHANGES_link]: https://github.com/admb-project/admb/releases/download/admb-11.6/CHANGES.html
+
+[CHANGES_link]: http://www.admb-project.org/downloads/admb-12.0/CHANGES.html
 
 Read the installation procedures in [INSTALL][INSTALL_link] for Unix and Windows computers.
-[INSTALL_link]: https://github.com/admb-project/admb/releases/download/admb-11.6/INSTALL.html
+
+[INSTALL_link]: http://www.admb-project.org/downloads/admb-12.0/INSTALL.html
 
 User manuals for AD Model Builder, the AUTODIF library and the ADMB-RE nonlinear
 random effects module are in the [ADMB downloads][ADMB_downloads_link].

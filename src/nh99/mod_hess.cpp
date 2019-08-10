@@ -1,6 +1,4 @@
-/*
- * $Id$
- *
+/**
  * Author: David Fournier
  * Copyright (c) 2008-2012 Regents of the University of California
  */
@@ -58,6 +56,7 @@ void function_minimizer::hess_routine_noparallel(void)
   //if (adjm_ptr) set_labels_for_hess(nvar);
   independent_variables x(1,nvar);
   initial_params::xinit(x);        // get the initial values into the x vector
+  double f = 0.0;
   double delta=1.e-5;
   dvector g1(1,nvar);
   dvector g2(1,nvar);
@@ -83,7 +82,8 @@ void function_minimizer::hess_routine_noparallel(void)
       *objective_function_value::pobjfun=0.0;
       pre_userfunction();
       vf+=*objective_function_value::pobjfun;
-      gradcalc(nvar, g1, vf);
+      f = value(vf);
+      gradcalc(nvar, g1);
     }
     double sdelta1;
     double sdelta2;
@@ -100,7 +100,8 @@ void function_minimizer::hess_routine_noparallel(void)
       *objective_function_value::pobjfun=0.0;
       pre_userfunction();
       vf+=*objective_function_value::pobjfun;
-      gradcalc(nvar, g1, vf);
+      f = value(vf);
+      gradcalc(nvar, g1);
 
       sdelta2=x(i)-delta;
       sdelta2-=x(i);
@@ -110,7 +111,8 @@ void function_minimizer::hess_routine_noparallel(void)
       *objective_function_value::pobjfun=0.0;
       pre_userfunction();
       vf+=*objective_function_value::pobjfun;
-      gradcalc(nvar, g2, vf);
+      f = value(vf);
+      gradcalc(nvar, g2);
       x(i)=xsave;
       hess1=(g1-g2)/(sdelta1-sdelta2);
 
@@ -122,7 +124,8 @@ void function_minimizer::hess_routine_noparallel(void)
       *objective_function_value::pobjfun=0.0;
       pre_userfunction();
       vf+=*objective_function_value::pobjfun;
-      gradcalc(nvar, g1, vf);
+      f = value(vf);
+      gradcalc(nvar, g1);
 
       x(i)=xsave-eps*delta;
       sdelta2=x(i)-eps*delta;
@@ -133,7 +136,8 @@ void function_minimizer::hess_routine_noparallel(void)
       *objective_function_value::pobjfun=0.0;
       pre_userfunction();
       vf+=*objective_function_value::pobjfun;
-      gradcalc(nvar, g2, vf);
+      f = value(vf);
+      gradcalc(nvar, g2);
       x(i)=xsave;
 
       hess2=(g1-g2)/(sdelta1-sdelta2);
@@ -149,6 +153,14 @@ void function_minimizer::hess_routine_noparallel(void)
   dvector tscale(1,nvar);   // need to get scale from somewhere
   /*int check=*/initial_params::stddev_scale(tscale,x);
   ofs << tscale;
+  // Write the MLE (bounded space) to file to be read in later by hybrid
+  // methods. This is needed b/c the covar needs to be rescaled and the MLE
+  // is needed for that.
+  // Added by Cole; 4/2017
+  ofs << -987; // unique flag to check for later
+  dvector mle(1,nvar);
+  initial_params::copy_all_values(mle,1);
+  ofs << mle;
 }
 
 void function_minimizer::hess_routine_and_constraint(int iprof,
@@ -157,6 +169,7 @@ void function_minimizer::hess_routine_and_constraint(int iprof,
   int nvar=initial_params::nvarcalc(); // get the number of active parameters
   independent_variables x(1,nvar);
   initial_params::xinit(x);        // get the initial values into the x vector
+  double f = 0.0;
   double delta=1.e-6;
   dvector g1(1,nvar);
   dvector g2(1,nvar);
@@ -181,7 +194,8 @@ void function_minimizer::hess_routine_and_constraint(int iprof,
       pre_userfunction();
       vf+=*objective_function_value::pobjfun;
       vf-=lambda*likeprof_params::likeprofptr[iprof]->variable();
-      gradcalc(nvar, g1, vf);
+      f = value(vf);
+      gradcalc(nvar, g1);
     }
     double sdelta1;
     double sdelta2;
@@ -200,7 +214,8 @@ void function_minimizer::hess_routine_and_constraint(int iprof,
       pre_userfunction();
       vf+=*objective_function_value::pobjfun;
       vf-=lambda*likeprof_params::likeprofptr[iprof]->variable();
-      gradcalc(nvar, g1, vf);
+      f = value(vf);
+      gradcalc(nvar, g1);
 
       sdelta2=x(i)-delta;
       sdelta2-=x(i);
@@ -211,7 +226,8 @@ void function_minimizer::hess_routine_and_constraint(int iprof,
       pre_userfunction();
       vf+=*objective_function_value::pobjfun;
       vf-=lambda*likeprof_params::likeprofptr[iprof]->variable();
-      gradcalc(nvar, g2, vf);
+      f = value(vf);
+      gradcalc(nvar, g2);
       x(i)=xsave;
       hess1=(g1-g2)/(sdelta1-sdelta2);
   /*

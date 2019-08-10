@@ -1,6 +1,6 @@
 @echo off
 @REM
-@REM  Copyright 2013 (c) ADMB Foundation
+@REM  Copyright 2013-2017 (c) ADMB Foundation
 @REM
 
 if [%1]==[] goto HELP
@@ -158,9 +158,9 @@ if "!CXX!"=="cl" (
     )
   )
   if not exist "!ADMB_HOME!\lib\admb-contrib.lib" (
-    set CXXFLAGS=!CXXFLAGS! /I. /I"!ADMB_HOME!\include" /I"!ADMB_HOME!\include\contrib"
+    set CXXFLAGS=!CXXFLAGS! /D_USE_MATH_DEFINES /I. /I"!ADMB_HOME!\include"
   ) else (
-    set CXXFLAGS=!CXXFLAGS! /I. /I"!ADMB_HOME!\include" /I"!ADMB_HOME!\contrib\include"
+    set CXXFLAGS=!CXXFLAGS! /DUSE_ADMB_CONTRIBS /D_USE_MATH_DEFINES /I. /I"!ADMB_HOME!\include" /I"!ADMB_HOME!\include\contrib"
   )
 ) else (
   if not defined CXX (
@@ -173,13 +173,28 @@ if "!CXX!"=="cl" (
       set LD=g++
     )
   )
-  for /f %%i in ('!CXX! -dumpversion ^| findstr 4.') do (
+  for /f %%i in ('!CXX! -dumpversion ^| findstr /b 4.') do (
+    set CXXMAJORNUMBER=-g++4
     set STDCXX=-std=c++11
   )
-  for /f %%i in ('!CXX! -dumpversion ^| findstr 5.') do (
+  for /f %%i in ('!CXX! -dumpversion ^| findstr /b 5.') do (
+    set CXXMAJORNUMBER=-g++5
     set STDCXX=-std=c++14
   )
-  for /f %%i in ('!CXX! -dumpversion ^| findstr 6.') do (
+  for /f %%i in ('!CXX! -dumpversion ^| findstr /b 6.') do (
+    set CXXMAJORNUMBER=-g++6
+    set STDCXX=-std=c++14
+  )
+  for /f %%i in ('!CXX! -dumpversion ^| findstr /b 7.') do (
+    set CXXMAJORNUMBER=-g++7
+    set STDCXX=-std=c++14
+  )
+  for /f %%i in ('!CXX! -dumpversion ^| findstr /b 8.') do (
+    set CXXMAJORNUMBER=-g++8
+    set STDCXX=-std=c++14
+  )
+  for /f %%i in ('!CXX! -dumpversion ^| findstr /b 9.') do (
+    set CXXMAJORNUMBER=-g++9
     set STDCXX=-std=c++14
   )
   if defined CXXFLAGS (
@@ -205,18 +220,34 @@ if "!CXX!"=="cl" (
   ) else (
     set CXXFLAGS=!CXXFLAGS! -O3
   )
+  for /f %%i in ('!CXX! -dumpmachine ^| findstr /b i686') do (
+    for /f %%i in ('!CXX! --version ^| findstr MSYS2') do (
+      set CXXVERSION=-i686-msys!CXXMAJORNUMBER!
+    )
+    if not defined CXXVERSION (
+      set CXXVERSION=-mingw32!CXXMAJORNUMBER!
+    )
+  )
+  for /f %%i in ('!CXX! -dumpmachine ^| findstr /b x86_64') do (
+    for /f %%i in ('!CXX! --version ^| findstr MSYS2') do (
+      set CXXVERSION=-x86_64-msys!CXXMAJORNUMBER!
+    )
+    if not defined CXXVERSION (
+      set CXXVERSION=-mingw64!CXXMAJORNUMBER!
+    )
+  )
   if defined fast (
     set CXXFLAGS=!CXXFLAGS! -DOPT_LIB
-    if not exist "!ADMB_HOME!\lib\libadmb-contribo.a" (
-      set libs="!ADMB_HOME!\lib\libadmbo.a"
+    if not exist "!ADMB_HOME!\lib\libadmb-contribo!CXXVERSION!.a" (
+      set libs="!ADMB_HOME!\lib\libadmbo!CXXVERSION!.a"
     ) else (
-      set libs="!ADMB_HOME!\lib\libadmb-contribo.a"
+      set libs="!ADMB_HOME!\lib\libadmb-contribo!CXXVERSION!.a"
     )
   ) else (
-    if not exist "!ADMB_HOME!\lib\libadmb-contrib.a" (
-      set libs="!ADMB_HOME!\lib\libadmb.a"
+    if not exist "!ADMB_HOME!\lib\libadmb-contrib!CXXVERSION!.a" (
+      set libs="!ADMB_HOME!\lib\libadmb!CXXVERSION!.a"
     ) else (
-      set libs="!ADMB_HOME!\lib\libadmb-contrib.a"
+      set libs="!ADMB_HOME!\lib\libadmb-contrib!CXXVERSION!.a"
     )
   )
   set CXXFLAGS=!CXXFLAGS! -fpermissive
@@ -227,12 +258,19 @@ if "!CXX!"=="cl" (
     set CXXFLAGS=!CXXFLAGS! -DBUILDING_DLL
   )
   if not exist "!ADMB_HOME!\lib\libadmb-contrib.a" (
-    set CXXFLAGS=!CXXFLAGS! -I. -I"!ADMB_HOME!\include" -I"!ADMB_HOME!\include\contrib"
+    set CXXFLAGS=!CXXFLAGS! -D_USE_MATH_DEFINES -I. -I"!ADMB_HOME!\include"
   ) else (
-    set CXXFLAGS=!CXXFLAGS! -I. -I"!ADMB_HOME!\include" -I"!ADMB_HOME!\contrib\include"
+    set CXXFLAGS=!CXXFLAGS! -DUSE_ADMB_CONTRIBS -D_USE_MATH_DEFINES -I. -I"!ADMB_HOME!\include" -I"!ADMB_HOME!\include\contrib"
   )
 )
-set "PATH=!ADMB_HOME!\bin;!ADMB_HOME!\utilities\mingw\bin;!PATH!"
+if exist "!CD!\echo" (
+  echo.&echo Warning: File 'echo' should not be in !CD!.
+)
+if exist "!ADMB_HOME!\utilities\mingw\bin" (
+  set "PATH=!ADMB_HOME!\bin;!ADMB_HOME!\utilities\mingw\bin;!PATH!"
+) else (
+  set "PATH=!ADMB_HOME!\bin;!PATH!"
+)
 if not defined tpls (
   if not defined srcs (
     if not defined objs (
@@ -362,7 +400,7 @@ if not defined tpls (
       )
       echo.&echo *** Linking: !objs!
       echo !CMD!
-      call !CMD!
+      call !CMD! || goto ERROR
       if defined d (
         if not exist !main!.dll (
           goto ERROR
@@ -413,7 +451,7 @@ if not defined tpls (
       echo.&echo *** Linking: !tpl!.obj
     )
     echo !CMD!
-    call !CMD!
+    call !CMD! || goto ERROR
     if defined d (
       if not exist !tpl!.dll (
         goto ERROR
@@ -429,8 +467,10 @@ if not defined tpls (
     )
   )
 )
+
 :SUCCESS
 goto EOF
+
 :ERROR
 echo.&echo Error: Unable to build.
 echo.&echo COMSPEC=%COMSPEC%.
@@ -440,7 +480,7 @@ goto EOF
 :HELP
 echo Builds AD Model Builder executable or library.
 echo.
-echo Release Version: 11.6
+echo Release Version: 12.0
 echo Location: %~dp0
 echo.
 echo Usage: admb [-c] [-d] [-g] [-r] [-f] model [src(s)]
@@ -471,4 +511,6 @@ REM r525 [2009-08-07] arnima  added support for filename extension like
 REM                           simple.tpl
 REM                   johnoel split -s option into separate -g and -s options
 REM r244 [2009-05-28] arnima  created
+
 :EOF
+EXIT /B

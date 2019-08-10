@@ -117,29 +117,30 @@ df3_three_vector::~df3_three_vector()
 {
   deallocate();
 }
-
 /**
- * Description not yet available.
- * \param
- */
- void df3_three_vector::deallocate(void)
- {
-   if(shape)
-   {
-     if (shape->ncopies)
-     {
-       (shape->ncopies)--;
-     }
-     else
-     {
-       v = (df3_three_variable*) (shape->trueptr);
-       delete [] v;
-       v = NULL;
-       delete shape;
-       shape=0;
-     }
-   }
- }
+Free allocated memory.
+*/
+void df3_three_vector::deallocate()
+{
+  if (shape)
+  {
+    if (shape->ncopies)
+    {
+      (shape->ncopies)--;
+    }
+    else
+    {
+      v = (df3_three_variable*) (shape->trueptr);
+      delete [] v;
+      v = NULL;
+
+      delete shape;
+      shape=0;
+    }
+    index_max = -1;
+    index_min = 0;
+  }
+}
 
 /**
  * Description not yet available.
@@ -402,82 +403,87 @@ df3_three_variable operator-(const df3_three_variable& v)
 }
 /**
 Add values of v to df3_three_variable.
+\param var variable
 */
-df3_three_variable& df3_three_variable::operator+=(const df3_three_variable& _v)
+df3_three_variable& df3_three_variable::operator+=(const df3_three_variable& var)
 {
-  *get_u() += *_v.get_u();
-  *get_u_x() += *_v.get_u_x();
-  *get_u_y() += *_v.get_u_y();
-  *get_u_z() += *_v.get_u_z();
-  *get_u_xx() += *_v.get_u_xx();
-  *get_u_xy() += *_v.get_u_xy();
-  *get_u_xz() += *_v.get_u_xz();
-  *get_u_yy() += *_v.get_u_yy();
-  *get_u_yz() += *_v.get_u_yz();
-  *get_u_zz() += *_v.get_u_zz();
-  *get_u_xxx() += *_v.get_u_xxx();
-  *get_u_xxy() += *_v.get_u_xxy();
-  *get_u_xxz() += *_v.get_u_xxz();
-  *get_u_xyy() += *_v.get_u_xyy();
-  *get_u_xyz() += *_v.get_u_xyz();
-  *get_u_xzz() += *_v.get_u_xzz();
-  *get_u_yyy() += *_v.get_u_yyy();
-  *get_u_yyz() += *_v.get_u_yyz();
-  *get_u_yzz() += *_v.get_u_yzz();
-  *get_u_zzz() += *_v.get_u_zzz();
+  *get_u() += *var.get_u();
+  *get_u_x() += *var.get_u_x();
+  *get_u_y() += *var.get_u_y();
+  *get_u_z() += *var.get_u_z();
+  *get_u_xx() += *var.get_u_xx();
+  *get_u_xy() += *var.get_u_xy();
+  *get_u_xz() += *var.get_u_xz();
+  *get_u_yy() += *var.get_u_yy();
+  *get_u_yz() += *var.get_u_yz();
+  *get_u_zz() += *var.get_u_zz();
+  *get_u_xxx() += *var.get_u_xxx();
+  *get_u_xxy() += *var.get_u_xxy();
+  *get_u_xxz() += *var.get_u_xxz();
+  *get_u_xyy() += *var.get_u_xyy();
+  *get_u_xyz() += *var.get_u_xyz();
+  *get_u_xzz() += *var.get_u_xzz();
+  *get_u_yyy() += *var.get_u_yyy();
+  *get_u_yyz() += *var.get_u_yyz();
+  *get_u_yzz() += *var.get_u_yzz();
+  *get_u_zzz() += *var.get_u_zzz();
   return *this;
 }
 /**
-Multiply value v to the values of df3_three_variable.
+Multiply df3_three_variable by value.
+\param value constant
 */
-df3_three_variable& df3_three_variable::operator*=(double _v)
+df3_three_variable& df3_three_variable::operator*=(double value)
 {
-  *get_u() *= _v;
-  *get_u_x() *= _v;
-  *get_u_y() *= _v;
-  *get_u_z() *= _v;
-  *get_u_xx() *= _v;
-  *get_u_xy() *= _v;
-  *get_u_xz() *= _v;
-  *get_u_yy() *= _v;
-  *get_u_yz() *= _v;
-  *get_u_zz() *= _v;
-  *get_u_xxx() *= _v;
-  *get_u_xxy() *= _v;
-  *get_u_xxz() *= _v;
-  *get_u_xyy() *= _v;
-  *get_u_xyz() *= _v;
-  *get_u_xzz() *= _v;
-  *get_u_yyy() *= _v;
-  *get_u_yyz() *= _v;
-  *get_u_yzz() *= _v;
-  *get_u_zzz() *= _v;
+  *get_u() *= value;
+  *get_u_x() *= value;
+  *get_u_y() *= value;
+  *get_u_z() *= value;
+  *get_u_xx() *= value;
+  *get_u_xy() *= value;
+  *get_u_xz() *= value;
+  *get_u_yy() *= value;
+  *get_u_yz() *= value;
+  *get_u_zz() *= value;
+  *get_u_xxx() *= value;
+  *get_u_xxy() *= value;
+  *get_u_xxz() *= value;
+  *get_u_xyy() *= value;
+  *get_u_xyz() *= value;
+  *get_u_xzz() *= value;
+  *get_u_yyy() *= value;
+  *get_u_yyz() *= value;
+  *get_u_yzz() *= value;
+  *get_u_zzz() *= value;
   return *this;
 }
 /**
-Multiply values in v to df3_three_variable which calls set_derivatives.
+Multiply df3_three_variable by var, then call set_derivatives.
+\param var variable
 */
-df3_three_variable& df3_three_variable::operator*=(const df3_three_variable& v)
+df3_three_variable& df3_three_variable::operator*=(const df3_three_variable& var)
 {
-  df3_three_variable x = *this * v;
+  df3_three_variable x = *this * var;
   *this = x;
   return *this;
 }
 /**
-Divide values in v to df3_three_variable which calls set_derivatives.
+Divide df3_three_variable by var, then call set_derivatives.
+\param var variable
 */
-df3_three_variable& df3_three_variable::operator/=(const df3_three_variable& v)
+df3_three_variable& df3_three_variable::operator/=(const df3_three_variable& var)
 {
-  df3_three_variable x = *this / v;
+  df3_three_variable x = *this / var;
   *this = x;
   return *this;
 }
 /**
-Add value _v to only df3_three_variable u.  All other values unchanged.
+Add value value to only df3_three_variable u.  All other values unchanged.
+\param value constant
 */
-df3_three_variable& df3_three_variable::operator+=(double _v)
+df3_three_variable& df3_three_variable::operator+=(double value)
 {
-  *get_u() += _v;
+  *get_u() += value;
   return *this;
 }
 
@@ -1420,9 +1426,7 @@ df3_three_variable operator*(
 
     return z;
   }
-/**
-Destructor
-*/
+/// Destructor
 init_df3_three_variable::~init_df3_three_variable()
 {
   num_local_ind_var--;
@@ -1437,56 +1441,58 @@ init_df3_three_variable::~init_df3_three_variable()
   }
 }
 /**
-Constructor for df1b2variable.
+Construct init_df3_three_variable from df1b2variable.
+
+\param _var df1b2variable
 */
-  init_df3_three_variable::init_df3_three_variable(const df1b2variable& _v)
+init_df3_three_variable::init_df3_three_variable(const df1b2variable& _var)
+{
+  ADUNCONST(df1b2variable,var)
+  if (num_local_ind_var > 2)
   {
-    ADUNCONST(df1b2variable,v)
-    if (num_local_ind_var>2)
-    {
       cerr << "can only have 3 independent_variables in df3_three_variable"
        " function" << endl;
       ad_exit(1);
-    }
-    ind_var[num_ind_var++]=&v;
-    num_local_ind_var++;
-    *get_u() =  *v.get_u();
-    *get_u_x() = 0.0;
-    *get_u_y() = 0.0;
-    *get_u_z() = 0.0;
-    switch(num_local_ind_var)
-    {
-    case 1:
-      *get_u_x() = 1.0;
-      break;
-    case 2:
-      *get_u_y() = 1.0;
-      break;
-    case 3:
-      *get_u_z() = 1.0;
-      break;
-    default:
-      cerr << "illegal num_ind_var value of " << num_ind_var
-           << " in  df3_three_variable function" << endl;
-      ad_exit(1);
-    }
-    *get_u_xx() = 0.0;
-    *get_u_xy() = 0.0;
-    *get_u_xz() = 0.0;
-    *get_u_yy() = 0.0;
-    *get_u_yz() = 0.0;
-    *get_u_zz() = 0.0;
-    *get_u_xxx() = 0.0;
-    *get_u_xxy() = 0.0;
-    *get_u_xxz() = 0.0;
-    *get_u_xyy() = 0.0;
-    *get_u_xyz() = 0.0;
-    *get_u_xzz() = 0.0;
-    *get_u_yyy() = 0.0;
-    *get_u_yyz() = 0.0;
-    *get_u_yzz() = 0.0;
-    *get_u_zzz() = 0.0;
   }
+  ind_var[num_ind_var++] = &var;
+  num_local_ind_var++;
+  *get_u() =  *var.get_u();
+  *get_u_x() = 0.0;
+  *get_u_y() = 0.0;
+  *get_u_z() = 0.0;
+  switch(num_local_ind_var)
+  {
+  case 1:
+    *get_u_x() = 1.0;
+    break;
+  case 2:
+    *get_u_y() = 1.0;
+    break;
+  case 3:
+    *get_u_z() = 1.0;
+    break;
+  default:
+    cerr << "illegal num_ind_var value of " << num_ind_var
+         << " in  df3_three_variable function" << endl;
+    ad_exit(1);
+  }
+  *get_u_xx() = 0.0;
+  *get_u_xy() = 0.0;
+  *get_u_xz() = 0.0;
+  *get_u_yy() = 0.0;
+  *get_u_yz() = 0.0;
+  *get_u_zz() = 0.0;
+  *get_u_xxx() = 0.0;
+  *get_u_xxy() = 0.0;
+  *get_u_xxz() = 0.0;
+  *get_u_xyy() = 0.0;
+  *get_u_xyz() = 0.0;
+  *get_u_xzz() = 0.0;
+  *get_u_yyy() = 0.0;
+  *get_u_yyz() = 0.0;
+  *get_u_yzz() = 0.0;
+  *get_u_zzz() = 0.0;
+}
 
 /**
  * Description not yet available.

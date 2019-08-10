@@ -1,20 +1,95 @@
 #ADMB Project  
-*ADMB-11.6*  
-*Released December 20, 2016*  
 
 Describe changes and features for each release.
 
 ---
 
-Release Notes
+Release Goals
 -------------
-The goals for all releases are
  
 * Continually improve algorithms
 * Add new requested features
 * Correct defects (bugs)
 * Continually streamline installation and build process
 * Continually improve and update documentation
+
+ADMB-git
+---------
+
+####Changes and Improvements
+
+* Fixed valgrind reported memory leaks.
+
+* Buildbot is now hosted at SOEST (April-2018).
+  
+  https://buildbot.admb-project.org/
+
+  Note: Needed to comment out "escape shell special characters"
+  in runproces.py from windows buildbot-worker.
+
+* Using Travis CI for build and testing of ADMB.
+  
+  https://travis-ci.org/admb-project/admb/
+
+* Fixed parsers to avoid needing to add extra line at the end to the tpl file.
+* Added target dist to Makefile to skip building shared libraries for faster builds.
+
+  For unix,
+
+  $ make dist
+
+  For Microsoft Visual Studio,
+
+  > nmake dist
+
+* Able to build only shared targets.
+
+  For unix,
+
+  $ make shared 
+
+
+ADMB-12.0
+---------
+
+*Released December 21, 2017*  
+
+####New Supported Compilers
+
+* GNU C++ 7
+* Intel C++ Compiler 2018
+* Microsoft Visual Studio 2017 (MSVC++ 14.1)
+
+  __Note__ Microsoft Visual C++ 2013 is no longer supported.
+
+####New Feature
+
+* Dr. Cole Monnahan has developed a new MCMC functionality into ADMB. The
+  current Metropolis algorithm was updated to have more meaningful console
+  output and not require an sdreport object. The old method remains, and
+  the new one is accessible with argument '-rwm'. A new algorithm, the
+  no-U-turn sampler (a self-tuning extension of the existing 'hybrid'
+  method was also added, and available with '-nuts'. The functionality
+  matches the software platform Stan closely. The user can specify whether
+  to use the MLE covariance, an arbitrary matrix, or adapt one during the
+  warmup phase (recommended). Both these additions work much with the R
+  package adnuts, which streamlines workflow, including parallel chains,
+  diagnostic checking, and inference. See adnuts package vignette for more
+  information.
+
+####Changes and Improvements
+
+There were approximately 900 commits to improve ADMB.
+Below are some of the changes.
+
+* Fixed many signed and unsigned conversion warnings.
+* Reverted change to gradcalc wrapper which caused incorrect outputs in profiler (see https://github.com/admb-project/admb/commit/6ffe1a00cc308dec52a271fa0cc088bfadfe6061).
+* Fixed 2gb limitation for file i/o using MSVC compiler.
+* Improved and simplified DF_FILE functions.
+* Added and updated function documentation.
+* Increased testing code coverage.
+* Updated tiny_ad.
+* Fixed issue #86.  Increased max initial parameters from 250 to 4000.
 
 ADMB-11.6
 ---------

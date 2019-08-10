@@ -1,33 +1,12 @@
 ;;; admb.el --- Major mode for creating statistical models with AD Model Builder
 
-;; Copyright (C) 2003, 2007-2016 Arni Magnusson
+;; Copyright (C) 2003, 2007-2018 Arni Magnusson
 
 ;; Author:   Arni Magnusson
 ;; Keywords: languages
-;; URL:      http://admb-project.org/tools/editors/emacs/admb.el
+;; URL:      https://github.com/admb-project/admb/blob/master/contrib/emacs
 
-(defconst admb-mode-version "11.5-0" "ADMB Mode version number.")
-
-;; This admb.el file is provided under the general terms of the Simplified BSD
-;; License.
-;; Redistribution and use in source and binary forms, with or without
-;; modification, are permitted provided that the following conditions are met:
-;; 1 Redistributions of source code must retain the above copyright notice, this
-;;   list of conditions and the following disclaimer.
-;; 2 Redistributions in binary form must reproduce the above copyright notice,
-;;   this list of conditions and the following disclaimer in the documentation
-;;   and/or other materials provided with the distribution.
-
-;; THIS SOFTWARE IS PROVIDED BY THE AUTHOR "AS IS" AND ANY EXPRESS OR IMPLIED
-;; WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED WARRANTIES OF
-;; MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE DISCLAIMED. IN NO
-;; EVENT SHALL THE AUTHOR BE LIABLE FOR ANY DIRECT, INDIRECT, INCIDENTAL,
-;; SPECIAL, EXEMPLARY, OR CONSEQUENTIAL DAMAGES (INCLUDING, BUT NOT LIMITED TO,
-;; PROCUREMENT OF SUBSTITUTE GOODS OR SERVICES; LOSS OF USE, DATA, OR PROFITS;
-;; OR BUSINESS INTERRUPTION) HOWEVER CAUSED AND ON ANY THEORY OF LIABILITY,
-;; WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT (INCLUDING NEGLIGENCE OR
-;; OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS SOFTWARE, EVEN IF
-;; ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
+(defconst admb-mode-version "12.0-1" "ADMB Mode version number.")
 
 ;;; Commentary:
 ;;
@@ -75,8 +54,8 @@
 ;;   (local-set-key [down-mouse-3] 'imenu))
 ;; (add-hook 'admb-mode-hook 'my-admb-hook)
 ;;
-;; See also ADMB-IDE (http://admb-project.org/tools/admb-ide) for special use of
-;; `admb-mode'.
+;; See also AD Studio (https://github.com/admb-project/adstudio) for special use
+;; of `admb-mode'.
 ;;
 ;; Usage:
 ;;
@@ -84,12 +63,12 @@
 ;;
 ;; References:
 ;;
-;; Fournier, D. 2014. An introduction to AD Model Builder for use in nonlinear
-;;   modeling and statistics. Version 11.2. Honolulu: ADMB Foundation.
-;;   [http://admb-project.org/documentation/manuals]
-;; Fournier, D. 2014. AUTODIF: A C++ array language extension with automatic
-;;   differentiation for use in nonlinear modeling and statistics. Version 11.2.
-;;   Honolulu: ADMB Foundation. [http://admb-project.org/documentation/manuals]
+;; Fournier, D. An introduction to AD Model Builder for use in nonlinear
+;;   modeling and statistics.
+;;   [http://admb-project.org/docs/manuals/]
+;; Fournier, D. AUTODIF: A C++ array language extension with automatic
+;;   differentiation for use in nonlinear modeling and statistics.
+;;   [http://admb-project.org/docs/manuals/]
 ;; Fournier, D.A., H.J. Skaug, J. Ancheta, J. Ianelli, A. Magnusson, M.N.
 ;;   Maunder, A. Nielsen, and J. Sibert. 2012. AD Model Builder: Using automatic
 ;;   differentiation for statistical inference of highly parameterized complex
@@ -97,9 +76,8 @@
 ;; Magnusson, A. 2009. ADMB-IDE: Easy and efficient user interface. ADMB
 ;;   Foundation Newsletter 1(3):1-2. [http://admb-foundation.org/wp-content/
 ;;   uploads/Newsletter/ADMBNewsletterJuly2009.pdf]
-;; Skaug, H. and D. Fournier. 2014. Random effects in AD Model Builder: ADMB-RE
-;;   user guide. Version 11.2. Honolulu: ADMB Foundation.
-;;   [http://admb-project.org/documentation/manuals]
+;; Skaug, H. and D. Fournier. Random effects in AD Model Builder: ADMB-RE user
+;;   guide. [http://admb-project.org/docs/manuals/]
 ;;
 ;; Known issues:
 ;;
@@ -110,202 +88,13 @@
 
 ;;; History:
 ;;
-;; 24 Jun 2016  11.5-0  Changed `admb-clean' to keep .std file.
-;; 29 Sep 2015  11.2-6  Simplified customization group.
-;; 18 Sep 2015  11.2-5  Removed user function `admb-new-buffer'. Simplified
-;;                      `admb-tool-bar-map'. Improved tab keybinding.
-;; 08 Sep 2015  11.2-4  Formatted code in 80 columns.
-;; 08 Sep 2015  11.2-3  Minor update before formatting code in 80 columns.
-;; 17 Aug 2015  11.2-2  Improved `admb-template'. Simplified `admb-run-args'.
-;;                      Removed explicit definition of `admb-mode-hook'.
-;; 13 Jul 2015  11.2-1  Added keywords "restore_dvar_vector_derivatives",
-;;                      "restore_dvar_matrix_derivatives", and
-;;                      "save_dvar_matrix_value".
-;; 12 Jan 2015  11.2-0  Adapted to new compilation flags (-f instead of -s, no
-;;                      more tpl2xxx -bounds). New version numbering system, to
-;;                      avoid confusion with old ADMB versions.
-;; 06 Dec 2013   8.1    Improved highlighing of function names.
-;; 09 Jul 2013   8.0    Rewritten using `define-derived-mode'. Defined internal
-;;                      variable `admb-mode-abbrev-table' implicitly.
-;; 09 Jul 2013   7.4    Minor update before experimenting with
-;;                      `define-derived-mode'. As of Emacs 24.1 (see NEWS), all
-;;                      programming modes should be derived from `prog-mode'.
-;; 23 Jun 2013   7.3    Adapted `admb-template' and `admb-template-mini' to ADMB
-;;                      version 11, using PI and sumsq().
-;; 22 Feb 2013   7.2    Added GUI menu item for `admb-kill-process'. Added
-;;                      keyword "random_effects_number".
-;; 19 Jan 2013   7.1    Added keywords "df1b2matrix", "df1b2variable", and
-;;                      "df1b2vector".
-;; 09 Apr 2012   7.0    Added user function `admb-kill-process', bound to
-;;                      C-c C-q.
-;; 29 Mar 2012   6.10   Improved keybindings on remote terminals.
-;; 17 Mar 2012   6.9    Improved `admb-for'. Added Fournier et al. (2012)
-;;                      reference.
-;; 29 Feb 2012   6.8    Improved `admb-template' and `admb-template-mini'.
-;; 12 Jan 2012   6.7    Improved `admb-open'.
-;; 01 Oct 2011   6.6    Added keywords "PI" and "sumsq". Made all keywords
-;;                      case-sensitive. Minor changes in `admb-template' and
-;;                      `admb-template-mini'.
-;; 31 Aug 2011   6.5    Improved documentation.
-;; 01 Mar 2011   6.4    Added issue regarding XEmacs.
-;; 19 Feb 2011   6.3    Added keywords "streampos" and "#undef".
-;; 17 Feb 2011   6.2    Added internal function `admb-send', improving
-;;                      `admb-build', `admb-compile', `admb-link', and
-;;                      `admb-run-makefile', and `admb-tpl2cpp'. Added keywords
-;;                      "prevariable_position",
-;;                      "restore_prevariable_derivative",
-;;                      "restore_prevariable_position",
-;;                      "restore_prevariable_value", "save_double_derivative",
-;;                      "save_prevariable_position", and
-;;                      "save_prevariable_value". Added GUI menu item for
-;;                      `admb-open'.
-;; 01 Dec 2010   6.1    Added keywords "allocate", "clock", "ctime", "difftime",
-;;                      "set_covariance_matrix", "strftime", "time", "time_t",
-;;                      and "vcubic_spline_function".
-;; 10 Oct 2010   6.0    Added user function `admb-toggle-flag'. Removed user
-;;                      function `admb-set-flags'. Rebound C-c C-- and
-;;                      restructured GUI menu accordingly.
-;; 01 Oct 2010   5.1    Improved documentation.
-;; 20 Sep 2010   5.0    Added user function `admb-open'. Improved `admb-cor',
-;;                      `admb-cpp', `admb-par', `admb-pin', and `admb-rep' so
-;;                      that files are opened in secondary window. Changed
-;;                      section highlighting to new `admb-section-face'. Bound
-;;                      C-c C-o to `admb-open' and C-c C-r to `admb-rep'.
-;; 14 Jul 2010   4.8    Added internal function `admb-split-window'.
-;; 08 Jul 2010   4.7    Improved documentation.
-;; 28 Jun 2010   4.6    Renamed `admb-version' to `admb-mode-version'. Unbound
-;;                      C-return and S-return.
-;; 16 Jun 2010   4.5    Added keywords "diagonal", "dvar4_array", "dvar5_array",
-;;                      "dvar6_array", "dvar7_array", "d4_array", "d5_array",
-;;                      "d6_array", "d7_array", "factln", "first_difference",
-;;                      "gamma_density", "log_gamma_density", and "sgamma".
-;;                      Improved highlighting of comments.
-;; 20 May 2010   4.4    Improved user functions `admb-build', `admb-compile',
-;;                      `admb-link', `admb-par', `admb-pin', `admb-rep',
-;;                      `admb-run', `admb-run-args', `admb-run-makefile', and
-;;                      `admb-tpl2cpp'. Added keybinding and GUI menu item for
-;;                      `admb-version'.
-;; 23 Apr 2010   4.3    Improved `admb-run-args' and `admb-template'. Added
-;;                      constant `admb-version'. Added user function
-;;                      `admb-version'. Added keyword "cube". Added Emacs
-;;                      Lisp ;;;###autoload cookie.
-;; 19 Mar 2010   4.2    Changed user function `admb-rep' so .rep file is opened
-;;                      with Emacs rather than external browser.
-;;                      Renamed old function `admb-rep-browser'.
-;; 16 Mar 2010   4.1    Improved `admb-run-args' so it suggests same args as
-;;                      user passed last time. Improved documentation.
-;; 14 Mar 2010   4.0    Added user functions `admb-par' and `admb-pin'. Added
-;;                      keywords "#define", "adstring_array", "c_str",
-;;                      "change_datafile_name", "change_pinfile_name", "empty",
-;;                      "erase", "find", "find_first_of", "find_last_of",
-;;                      "global_datafile", "insert", "length",
-;;                      "line_adstring", "nvarcalc", "replace", "rfind",
-;;                      "set_ARRAY_MEMBLOCK_SIZE",
-;;                      "set_CMPDIF_BUFFER_SIZE", "set_GRADSTACK_BUFFER_SIZE",
-;;                      "set_MAX_DLINKS",
-;;                      "set_MAX_NVAR_OFFSET", "set_NUM_DEPENDENT_VARIABLES",
-;;                      "set_NUM_RETURN_ARRAYS", "set_RETURN_ARRAYS_SIZE",
-;;                      "showpoint", "strchr", "strcmp", "strcspn", "string",
-;;                      "strncat", "strncmp", "strncpy", "strpbrk",
-;;                      "strrchr", "strspn", "strstr", "strtok", "substr", and
-;;                      "using". Removed keywords "ad_comm", "argc",
-;;                      "argv", "gradient_structure", "ios", and "report". Added
-;;                      highlighting of libraries and namespaces. Improved
-;;                      highlighting of function names. Improved
-;;                      `admb-template'.
-;; 26 Oct 2009   3.8    Rolled back to version 3.6, due to syntax highlighting
-;;                      problems. Added issue regarding underscores.
-;; 23 Oct 2009   3.7    Improved cursor motion inside
-;;                      underscore_separated_words.
-;; 30 Sep 2009   3.6    Improved syntax highlighting of function names.
-;; 14 Sep 2009   3.5    Added user function `admb-toggle-section'. Improved
-;;                      syntax highlighting of function names. Added issue
-;;                      regarding indentation.
-;; 07 Jul 2009   3.4    Improved user functions `admb-run' and `admb-run-args'
-;;                      so Emacs doesn't hang up while model runs and
-;;                      optimization progress is reported live. Shuffled GUI
-;;                      menu order.
-;; 03 Jun 2009   3.3    Added current directory to local PATH in Linux.
-;; 01 Jun 2009   3.2    Improved filename handling of `admb-cpp', `admb-cor',
-;;                      `admb-run', and `admb-run-args'.
-;; 27 May 2009   3.1    Improved documentation.
-;; 24 May 2009   3.0    Added user variables `admb-init' and
-;;                      `admb-run-makefile-command'. Renamed user variable
-;;                      `admb-make-command' to `admb-build-command'. Redefined
-;;                      user variable `admb-tpl2cpp-command' as internal
-;;                      variable. Added user functions `admb-cor', `admb-help',
-;;                      `admb-new-buffer', `admb-run-makefile',
-;;                      `admb-set-flags', and `admb-toggle-window'. Renamed user
-;;                      function `admb-make' to `admb-build'. Improved user
-;;                      function `admb-rep' so it checks if report file exists.
-;;                      Improved user function `admb-tpl2cpp' to support
-;;                      `admb-init' and `admb-tpl2cpp-flags'. Improved user
-;;                      functions `admb-build', `admb-compile', and `admb-link'
-;;                      to support `admb-init' and `admb-flags'. Improved screen
-;;                      output from `admb-run' and `admb-run-args'. Added
-;;                      internal variables `admb-flags', `admb-menu',
-;;                      `admb-tool-bar-map', and `admb-tpl2cpp-flags'. Added
-;;                      local variable `tool-bar-map'. Added keywords "#elif",
-;;                      "#else", "#endif", "#if", "#ifdef", "#ifndef", "defined"
-;;                      "dll_3darray", "dll_adstring", "dll_imatrix",
-;;                      "dll_init_3darray", "dll_init_bounded_number",
-;;                      "dll_init_bounded_vector", "dll_init_imatrix",
-;;                      "dll_init_int", "dll_init_matrix", "dll_init_number",
-;;                      "dll_init_vector", "dll_int", "dll_matrix",
-;;                      "dll_number", "dll_vector", "init_number_vector", and
-;;                      "log_negbinomial_density". Added GUI menu and toolbar
-;;                      icons. Adopted Simplified BSD License.
-;; 08 Apr 2009   2.5    Improved documentation strings of user variables and
-;;                      user functions.
-;; 31 Mar 2009   2.4    Improved screen output from user functions `admb-run'
-;;                      and `admb-run-args'. Improved indendation.
-;; 27 Mar 2009   2.3    Improved screen output from user functions `admb-run'
-;;                      and `admb-run-args'.
-;; 22 Mar 2009   2.2    Improved screen output from user functions `admb-run'
-;;                      and `admb-run-args'.
-;; 20 Mar 2009   2.1    Added user variable `admb-window-right'. Improved screen
-;;                      output from user functions `admb-compile', `admb-link',
-;;                      `admb-make', `admb-run', `admb-run-args', and
-;;                      `admb-tpl2cpp'. Improved user function `admb-make' so it
-;;                      saves buffer before calling `admb-make-command'. Added
-;;                      keyword "randnegbinomial".
-;; 09 Mar 2009   2.0    Complete rewrite. Added user variables
-;;                      `admb-comp-command', `admb-link-command',
-;;                      `admb-make-command', and `admb-tpl2cpp-command'. Added
-;;                      user functions `admb-clean', `admb-compile', `admb-cpp',
-;;                      `admb-endl', `admb-for', `admb-link', `admb-make',
-;;                      `admb-rep', `admb-run', `admb-run-args', and
-;;                      `admb-tpl2cpp'. Added internal variables
-;;                      `admb-font-lock-keywords', `admb-mode-abbrev-table',
-;;                      `admb-mode-map', and `admb-mode-syntax-table'. Added
-;;                      local variables `comment-start',
-;;                      `imenu-generic-expression', `indent-line-function', and
-;;                      `outline-regexp'. Added keywords "4darray", "5darray",
-;;                      "6darray", "7darray", "bool", "init_4darray",
-;;                      "init_5darray", "init_6darray", "init_7darray",
-;;                      "normal_prior", "NORMAL_PRIOR_FUNCTION",
-;;                      "random_effects_bounded_matrix",
-;;                      "random_effects_bounded_vector", and "sizeof". Added
-;;                      commentary on installation, customization, and usage.
-;; 28 Jan 2009   1.4    Added keyword "close", changed face names, and released
-;;                      to ADMB Project.
-;; 11 Dec 2008   1.3    Added keyword "SEPERABLE_FUNCTION".
-;; 28 Nov 2008   1.2    Added keywords "LOC_CALCS", "random_effects_vector", and
-;;                      "random_effects_matrix".
-;; 23 Jul 2008   1.1    Added user function `admb-outline'.
-;; 25 Sep 2007   1.0    Added user functions `admb-template' and
-;;                      `admb-template-mini'.
-;; 26 Aug 2003   0.9    Created main function `admb-mode', user variable
-;;                      `admb-mode-hook', and local variable
-;;                      `font-lock-defaults'.
+;; See the NEWS file.
 
 ;;; Code:
 
 ;; 1  Preamble
 
 (require 'outline)
-(require 'which-func)
-(add-to-list 'which-func-modes 'admb-mode) ; unnecessary in Emcas 24.3 onwards
 (defgroup admb nil
   "Major mode for editing AD Model Builder code."
   :tag "ADMB" :group 'languages)
@@ -567,6 +356,8 @@ Use `admb-toggle-flag' to set `admb-flags', `admb-tpl2cpp-command', and
     (define-key map [?\C-\M-m]          'admb-endl          )
     (define-key map [?\C-c C-backspace] 'admb-clean         )
     (define-key map [?\C-c 127]         'admb-clean         )
+    (define-key map [M-up]              'admb-scroll-up     )
+    (define-key map [M-down]            'admb-scroll-down   )
     (define-key map [?\C-c ?\C--]       'admb-toggle-flag   )
     (define-key map [?\C-c ?\C-.]       'admb-mode-version  )
     (define-key map [?\C-c ?\C-/]       'admb-help          )
@@ -590,6 +381,7 @@ Use `admb-toggle-flag' to set `admb-flags', `admb-tpl2cpp-command', and
     map))
 (defvar admb-tool-bar-map
   (let ((map (tool-bar-make-keymap)))
+    (tool-bar-local-item "separator" 'ignore nil map :help "" :enable nil)
     (tool-bar-local-item "disconnect" 'admb-tpl2cpp 'Translate map)
     (tool-bar-local-item "connect" 'admb-build 'Build map)
     (tool-bar-local-item "jump-to" 'admb-run 'Run map)
@@ -736,6 +528,20 @@ ending may need to be associated with the desired browser program."
   (interactive)(save-buffer)
   (admb-split-window)(admb-send admb-run-makefile-command)
   (with-current-buffer "*compilation*" (setq show-trailing-whitespace nil)))
+(defun admb-scroll-down (n)
+  "Scroll other window down N lines, or visit next error message.\n
+The behavior of this command depends on whether the compilation buffer is
+visible."
+  (interactive "p")
+  (if (null (get-buffer-window "*compilation*"))(scroll-other-window n)
+    (next-error n)))
+(defun admb-scroll-up (n)
+  "Scroll other window up N lines, or visit previous error message.\n
+The behavior of this command depends on whether the compilation buffer is
+visible."
+  (interactive "p")
+  (if (null (get-buffer-window "*compilation*"))(scroll-other-window (- n))
+    (previous-error n)))
 (defun admb-template ()
   "Insert AD Model Builder template." (interactive)
   (goto-char (point-min))(insert "\
@@ -879,7 +685,7 @@ and `admb-tpl2cpp-flags'."
 ;; 5  Internal functions
 
 (defun admb-send (cmd)
-  "Send shell compilation command, after cleaning up spaces."
+  "Send shell compilation command CMD, after cleaning up spaces."
   (compile (replace-regexp-in-string "  +" " " cmd)))
 (defun admb-split-window ()
   "Split window if it is the only window, otherwise do nothing.\n
@@ -911,6 +717,14 @@ files, and `admb-pin' to set initial parameter values. Run model with `admb-run'
 or `admb-run-args', and view model output with `admb-cor', `admb-par',
 `admb-rep', and `admb-rep-browser'. Use the general `admb-open' to open other
 model-related files.\n
+While staying in the ADMB window, navigate the secondary window with
+\\<admb-mode-map>\
+\\[beginning-of-buffer-other-window], \\[scroll-other-window-down], \
+\\[admb-scroll-up] (home, page up, line up), and
+\\[end-of-buffer-other-window], \\[scroll-other-window], \
+\\[admb-scroll-down] (end, page down, line down).
+This is particularly efficient for navigating error messages listed
+in the compilation buffer.\n
 The `admb-run-makefile' command supports makefile-based workflow.\n
 \\{admb-mode-map}"
   (set (make-local-variable 'comment-start) "//")

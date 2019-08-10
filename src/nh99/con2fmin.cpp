@@ -1,12 +1,6 @@
-/*
- * $Id$
- *
+/**
  * Author: David Fournier
  * Copyright (c) 2008-2012 Regents of the University of California
- */
-/**
- * \file
- * Description not yet available.
  */
 /* donlp2.f -- translated by f2c (version 19950110).
    You must link the resultinumberv object file with the libraries:
@@ -22,7 +16,7 @@ extern "C" {
 #include "f2c.h"
 /* Common Block Declarations */
 
-#include "constructors.h"
+//#include "constructors.h"
 #ifdef __cplusplus
   }
 #endif

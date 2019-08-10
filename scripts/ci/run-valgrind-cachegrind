@@ -1,0 +1,4 @@
+#!/bin/sh
+
+valgrind --tool=cachegrind --cachegrind-out-file=valgrind-cachegrind.txt $1
+cg_annotate valgrind-cachegrind.txt
